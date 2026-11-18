@@ -192,7 +192,8 @@ minimized on workspace 1 shows on workspace 1's taskbar only.
 Buttons are about 180px with icon and title. They shrink evenly when they
 don't all fit, then go icon-only. Titles are cut off with "…" and never
 scroll. The row is centered on the screen. Windows asking for attention get
-a steady tint, never a flash. There are no thumbnail previews, on purpose.
+a steady tint, never a flash. Thumbnail previews are off unless you turn
+them on (`thumbnails`).
 The bar hides under a real fullscreen window and when the top bar is hidden.
 
 ### Tasks settings
@@ -289,7 +290,8 @@ Each element of `apps` is one of:
   `"org.gnome.Nautilus"`, `"code"` (case and `.desktop` don't matter much;
   a close name like `"chrome"` is looked up too).
 - **Omarchy's launchers:** `"terminal"` (your default terminal, as
-  Super+Enter, in your home folder), `"browser"` (your default browser),
+  Super+Enter: in the folder of the terminal you're in, else your home
+  folder), `"browser"` (your default browser),
   `"agent"` (your default coding agent, as `omarchy agent`, with its logo).
 - **An app with arguments:** `{ "app": "google-chrome", "args": ["--incognito"], "name": "Incognito" }`.
 - **Any command:** `{ "command": "omarchy-launch-tui btop", "name": "Activity", "icon": "utilities-system-monitor" }`.

@@ -59,7 +59,9 @@ PanelWindow {
   // something is being dragged.
   readonly property bool autohide: !!bar && bar.settings.autohide === true
   property bool revealed: false
-  readonly property bool shown: !autohide || revealed || (!!bar && bar.popupOpen) || dragId !== ""
+  // One of this bar's popups is open (not another screen's).
+  readonly property bool popupHere: !!bar && bar.popupOpen && (!bar.popupWindow || bar.popupWindow === window)
+  readonly property bool shown: !autohide || revealed || popupHere || dragId !== ""
   onAutohideChanged: revealed = false
 
   mask: Region { item: window.shown ? content : trigger }
@@ -82,7 +84,7 @@ PanelWindow {
     onTriggered: {
       if (barHover.hovered) return
       // Something is open or being dragged: look again later.
-      if ((window.bar && window.bar.popupOpen) || window.dragId !== "") restart()
+      if (window.popupHere || window.dragId !== "") restart()
       else window.revealed = false
     }
   }
@@ -151,6 +153,7 @@ PanelWindow {
   BarMenu {
     id: barMenu
     bar: window.bar
+    panel: window
   }
 
   // Everything the bar draws. Auto-hidden, it moves below the edge.
@@ -197,6 +200,8 @@ PanelWindow {
     // Left and right sections are as wide as their widgets.
     Row {
       id: leftSection
+      // A widget dragged out of here is drawn over the taskbar buttons.
+      z: window.dragSection === "left" ? 2 : 0
       anchors.left: parent.left
       anchors.leftMargin: window.gutter
       height: parent.height
@@ -213,6 +218,7 @@ PanelWindow {
 
     Row {
       id: rightSection
+      z: window.dragSection === "right" ? 2 : 0
       anchors.right: parent.right
       // Show desktop sits in the very corner, as on Windows.
       anchors.rightMargin: window.endsWithShowDesktop ? 0 : window.gutter
@@ -257,6 +263,8 @@ PanelWindow {
   // pointer; the others step aside to show where it would land
   // (Reorder.dropSpot). Dropping saves the new layout.
   property string dragId: ""
+  // The section it was dragged out of.
+  property string dragSection: ""
   property real dragOffset: 0
   property real dragWidth: 0
   // Its x on the bar when the drag began.
@@ -284,6 +292,7 @@ PanelWindow {
     if (slot.item && typeof slot.item.dragStarted === "function") slot.item.dragStarted()
     var section = slot.section === "left" ? leftSection : rightSection
     window.dragId = slot.widgetId
+    window.dragSection = slot.section
     window.dragWidth = slot.width
     window.dragStartX = section.x + slot.x
     window.dragOffset = 0
@@ -320,6 +329,7 @@ PanelWindow {
     var spot = window.dragSpot
     var list = spot ? window.sideWidgets(spot.section) : []
     window.dragId = ""
+    window.dragSection = ""
     window.dragSpot = null
     window.dragShifts = ({})
     window.dragOffset = 0

@@ -16,6 +16,8 @@ AnchoredPopup {
   id: menu
 
   property var bar: null
+  // The bar window it belongs to (for the bar's one-popup rule).
+  property var panel: null
   // "main", or "omarchy" for the page listing Omarchy's widgets.
   property string page: "main"
 
@@ -75,7 +77,14 @@ AnchoredPopup {
       text: "Show on all displays"
       checkColumn: true
       checked: !!menu.bar && menu.bar.settings.screens === "all"
-      onTriggered: menu.change("bar", { screens: checked ? "primary" : "all" })
+      // Later, not now: turning this off from another screen's bar removes
+      // the very window this menu is running in.
+      onTriggered: {
+        var bar = menu.bar
+        var next = checked ? "primary" : "all"
+        menu.open = false
+        Qt.callLater(function() { bar.updateWidget("bar", { screens: next }) })
+      }
     }
 
     // Windows' wording again: hidden until the pointer reaches the edge.

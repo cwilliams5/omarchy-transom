@@ -104,8 +104,8 @@ Item {
   function newWindowAction(entry) {
     var actions = entry ? (Settings.toList(entry.actions) || []) : []
     for (var i = 0; i < actions.length; i++) {
-      var id = String(actions[i].id || "").toLowerCase()
-      if (id === "new-window" || id === "new_window" || id === "newwindow") return actions[i]
+      // new-window (Chrome, Firefox), new-empty-window (VS Code), and spellings of them.
+      if (/^new[-_ ]?(empty[-_ ]?)?window$/i.test(String(actions[i].id || ""))) return actions[i]
     }
     return null
   }
@@ -123,12 +123,21 @@ Item {
     if (item.command) {
       launcher.runApp(["bash", "-lc", item.command])
     } else if (item.special) {
-      // Omarchy's own launchers start their app themselves.
-      Util.execArgv(QuickLaunchModel.SPECIALS[item.special].command.concat(item.args))
+      // Omarchy's own launchers start their app themselves. The agent's
+      // takes no arguments.
+      var args = item.args
+      if (item.special === "agent" && args.length > 0) {
+        console.warn("transom: quick launch: the agent takes no args; ignoring " + JSON.stringify(args))
+        args = []
+      }
+      Util.execArgv(QuickLaunchModel.SPECIALS[item.special].command.concat(args))
     } else if (!button.entry) {
       console.warn("transom: quick launch: no app called " + item.app)
     } else if (item.args.length > 0) {
-      launcher.runApp(QuickLaunchModel.commandWith(button.entry.command, item.args))
+      var words = QuickLaunchModel.commandWith(button.entry.command, item.args)
+      // A terminal app (btop, nvim) needs a terminal around it.
+      if (button.entry.runInTerminal) Util.execArgv(["omarchy-launch-tui"].concat(words))
+      else launcher.runApp(words)
     } else {
       var action = launcher.newWindowAction(button.entry)
       if (action) launcher.runApp(QuickLaunchModel.commandWith(action.command, []))

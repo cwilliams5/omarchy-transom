@@ -89,11 +89,15 @@ Item {
   // widget opening a menu, flyout or panel claims the bar; the previous
   // owner's closePopups() runs. A click on empty bar space closes it.
   property var popupOwner: null
+  // The bar window (screen) the open popup belongs to: owners say with
+  // their panel property. An auto-hidden bar stays up only for its own.
+  property var popupWindow: null
 
   function claimPopup(owner) {
     if (root.popupOwner && root.popupOwner !== owner && typeof root.popupOwner.closePopups === "function")
       root.popupOwner.closePopups()
     root.popupOwner = owner
+    root.popupWindow = owner && owner.panel ? owner.panel : null
   }
 
   // Whether the popup that claimed the bar is still open. Owners say so
@@ -103,6 +107,7 @@ Item {
   function dismissPopups() {
     if (root.popupOwner && typeof root.popupOwner.closePopups === "function") root.popupOwner.closePopups()
     root.popupOwner = null
+    root.popupWindow = null
   }
 
   // Whether id is one of Omarchy's own bar widgets (omarchy.network...).
@@ -226,9 +231,12 @@ Item {
     onLoaded: root.agentId = text().trim()
   }
 
+  // Agent ids whose logo file is named differently.
+  readonly property var agentLogoNames: ({ "cursor-agent": "cursor", "ori": "openrouter" })
+
   function agentIcons() {
     if (!root.agentId) return []
-    var base = root.omarchyPath + "/shell/plugins/agents/assets/" + root.agentId
+    var base = root.omarchyPath + "/shell/plugins/agents/assets/" + (root.agentLogoNames[root.agentId] || root.agentId)
     return root.lightBar ? [base + "-light.svg", base + ".svg"] : [base + ".svg"]
   }
   onParsedBarSettingsChanged: {

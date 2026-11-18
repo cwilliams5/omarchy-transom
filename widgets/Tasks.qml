@@ -153,17 +153,26 @@ Item {
   Component.onCompleted: syncButtons()
 
   function syncButtons() {
-    var keys = taskbar.groupedButtons.map(function(button) { return button.key })
+    taskbar.syncKeyed(buttons, "key", taskbar.groupedButtons.map(function(button) { return button.key }))
+  }
+
+  // Makes a ListModel hold keys (in its role) in order with the fewest
+  // moves, inserts and removes, so delegates for keys still there live on.
+  function syncKeyed(model, role, keys) {
     for (var i = 0; i < keys.length; i++) {
-      if (i < buttons.count && buttons.get(i).key === keys[i]) continue
+      if (i < model.count && model.get(i)[role] === keys[i]) continue
       var found = -1
-      for (var j = i + 1; j < buttons.count; j++) {
-        if (buttons.get(j).key === keys[i]) { found = j; break }
+      for (var j = i + 1; j < model.count; j++) {
+        if (model.get(j)[role] === keys[i]) { found = j; break }
       }
-      if (found >= 0) buttons.move(found, i, 1)
-      else buttons.insert(i, { key: keys[i] })
+      if (found >= 0) model.move(found, i, 1)
+      else {
+        var row = {}
+        row[role] = keys[i]
+        model.insert(i, row)
+      }
     }
-    if (buttons.count > keys.length) buttons.remove(keys.length, buttons.count - keys.length)
+    if (model.count > keys.length) model.remove(keys.length, model.count - keys.length)
   }
 
   // --------------------------------------------------------- app lookups
@@ -193,6 +202,12 @@ Item {
     if (entry) return entry
     var id = TasksModel.claimingEntryId(appId, taskbar.terminalEntries)
     return id ? DesktopEntries.byId(id) : null
+  }
+
+  // An app's name, from its desktop entry (for iconStyleExceptions).
+  function appName(appId) {
+    var desktop = taskbar.entryFor(appId)
+    return desktop && desktop.name ? String(desktop.name) : ""
   }
 
   // Omarchy runs every coding agent in a terminal with this app id.
@@ -441,7 +456,7 @@ Item {
           height: taskbar.iconSize
           sources: taskbar.iconsFor(button.appId)
           tint: taskbar.bar ? taskbar.bar.foreground : Commons.Color.foreground
-          iconStyle: taskbar.bar ? taskbar.bar.iconStyleFor([button.appId, button.rawTitle]) : "color"
+          iconStyle: taskbar.bar ? taskbar.bar.iconStyleFor([button.appId, taskbar.appName(button.appId)]) : "color"
         }
 
         // How many windows a combined button holds: a small number on the
@@ -582,6 +597,7 @@ Item {
   // The bar calls this to close our popups when another widget opens one.
   function closePopups() {
     taskbar.closeMenu()
+    taskbar.hideTooltip()
   }
 
   // Whether one of its popups is open (the bar stays up while one is).
@@ -608,6 +624,8 @@ Item {
   function openMenu(address, slot) {
     console.log("transom: menu opened for " + address)
     if (taskbar.bar) taskbar.bar.claimPopup(taskbar)
+    taskbar.listKey = ""
+    taskbar.groupMenuKey = ""
     menuPopup.target = slot
     taskbar.menuAddress = address
   }
@@ -759,7 +777,17 @@ Item {
   readonly property var listEntries: listGroup
     ? listGroup.addresses.map(function(address) { return taskbar.byAddress[address] }).filter(function(entry) { return !!entry }) : []
 
+  // The list's rows follow this model, keyed by window address, so a row
+  // (and its live thumbnail) survives the window list being recomputed.
+  ListModel { id: listModel }
+  onListEntriesChanged: taskbar.syncKeyed(listModel, "address", taskbar.listEntries.map(function(entry) { return entry.address }))
+
   function openList(key, slot) {
+    // A second click on the same button closes it, as on Windows.
+    if (taskbar.listKey === key) {
+      taskbar.closeMenu()
+      return
+    }
     if (taskbar.bar) taskbar.bar.claimPopup(taskbar)
     taskbar.menuAddress = ""
     taskbar.groupMenuKey = ""
@@ -799,19 +827,21 @@ Item {
       contentWidth: Style.space(260)
 
       Repeater {
-        model: taskbar.listEntries
+        model: listModel
         delegate: MenuItemRow {
-          required property var modelData
+          required property string address
+          readonly property var entry: taskbar.byAddress[address] || null
           checkColumn: true
-          checked: modelData.toplevel.activated && !modelData.minimized
-          dimmed: modelData.minimized
-          iconSource: taskbar.iconUrl(taskbar.appIdOf(modelData.toplevel))
-          text: taskbar.windowTitle(modelData) || taskbar.appIdOf(modelData.toplevel)
+          checked: !!entry && entry.toplevel.activated && !entry.minimized
+          dimmed: !!entry && entry.minimized
+          iconSource: entry ? taskbar.iconUrl(taskbar.appIdOf(entry.toplevel)) : ""
+          text: entry ? (taskbar.windowTitle(entry) || taskbar.appIdOf(entry.toplevel)) : ""
           // Act first: closing the list destroys this row.
           onTriggered: {
-            var entry = modelData
-            if (entry.minimized) taskbar.restoreWindow(entry)
-            else taskbar.focusWindow(entry)
+            var picked = entry
+            if (!picked) return
+            if (picked.minimized) taskbar.restoreWindow(picked)
+            else taskbar.focusWindow(picked)
             taskbar.closeMenu()
           }
         }
@@ -841,18 +871,20 @@ Item {
         spacing: Style.space(6)
 
         Repeater {
-          model: stripPopup.open ? taskbar.listEntries : []
+          // Built only while open: each card captures its window live.
+          model: stripPopup.open ? listModel : null
           delegate: Rectangle {
             id: card
 
-            required property var modelData
-            readonly property bool current: modelData.toplevel.activated && !modelData.minimized
+            required property string address
+            readonly property var modelData: taskbar.byAddress[address] || null
+            readonly property bool current: !!modelData && modelData.toplevel.activated && !modelData.minimized
 
             width: Style.space(200) + Style.space(12)
             height: cardColumn.height + Style.space(12)
             radius: Style.cornerRadius
             color: cardMouse.containsMouse ? Style.hoverFill : current ? Style.selectedFill : "transparent"
-            opacity: modelData.minimized ? 0.6 : 1
+            opacity: !!modelData && modelData.minimized ? 0.6 : 1
 
             Column {
               id: cardColumn
@@ -869,14 +901,14 @@ Item {
                   width: Style.space(14)
                   height: Style.space(14)
                   anchors.verticalCenter: parent.verticalCenter
-                  sources: taskbar.iconsFor(taskbar.appIdOf(card.modelData.toplevel))
+                  sources: card.modelData ? taskbar.iconsFor(taskbar.appIdOf(card.modelData.toplevel)) : []
                 }
 
                 Text {
                   width: parent.width - Style.space(20)
                   anchors.verticalCenter: parent.verticalCenter
                   textFormat: Text.PlainText
-                  text: taskbar.windowTitle(card.modelData) || taskbar.appIdOf(card.modelData.toplevel)
+                  text: card.modelData ? (taskbar.windowTitle(card.modelData) || taskbar.appIdOf(card.modelData.toplevel)) : ""
                   elide: Text.ElideRight
                   color: Commons.Color.popups.text
                   font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
@@ -890,7 +922,7 @@ Item {
                 height: implicitHeight
                 maxWidth: Style.space(200)
                 maxHeight: Style.space(125)
-                toplevel: card.modelData.toplevel
+                toplevel: card.modelData ? card.modelData.toplevel : null
               }
             }
 
@@ -902,6 +934,7 @@ Item {
               // Act first: closing the strip destroys this card.
               onClicked: {
                 var entry = card.modelData
+                if (!entry) return
                 if (entry.minimized) taskbar.restoreWindow(entry)
                 else taskbar.focusWindow(entry)
                 taskbar.closeMenu()

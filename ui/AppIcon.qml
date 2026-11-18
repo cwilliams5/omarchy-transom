@@ -19,18 +19,23 @@ Item {
   property string iconStyle: "color"
   property color tint: "white"
 
+  // The candidates as loadable URLs, each once (several names often
+  // resolve to the same file).
+  readonly property var candidates: {
+    var out = []
+    var list = icon.sources || []
+    for (var i = 0; i < list.length; i++) {
+      var resolved = icon.resolve(list[i])
+      if (resolved && out.indexOf(resolved) < 0) out.push(resolved)
+    }
+    return out
+  }
+
   // Which candidate is showing; moves on when one fails to load.
   property int tried: 0
-  onSourcesChanged: tried = 0
+  onCandidatesChanged: tried = 0
 
-  readonly property url current: {
-    var list = icon.sources || []
-    for (var i = icon.tried; i < list.length; i++) {
-      var resolved = icon.resolve(list[i])
-      if (resolved) return resolved
-    }
-    return ""
-  }
+  readonly property url current: icon.tried < icon.candidates.length ? icon.candidates[icon.tried] : ""
   readonly property bool symbolic: String(current).split("?")[0].slice(-9) === "-symbolic"
   readonly property bool restyled: !symbolic && (iconStyle === "mono" || iconStyle === "themed")
 
@@ -55,17 +60,8 @@ Item {
     mipmap: true
     visible: !icon.symbolic && !icon.restyled
     layer.enabled: icon.symbolic
-    onStatusChanged: {
-      if (status !== Image.Error) return
-      // Skip to the candidate after the one that failed.
-      var list = icon.sources || []
-      for (var i = icon.tried; i < list.length; i++) {
-        if (icon.resolve(list[i]) === String(icon.current)) {
-          if (i + 1 < list.length) icon.tried = i + 1
-          return
-        }
-      }
-    }
+    // Failed: on to the next candidate.
+    onStatusChanged: if (status === Image.Error && icon.tried + 1 < icon.candidates.length) icon.tried++
   }
 
   // Symbolic: the icon's shape filled with tint.
