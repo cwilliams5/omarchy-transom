@@ -1,0 +1,381 @@
+# Transom
+
+**A Windows-style taskbar for Omarchy:** start button, quick launch, this
+workspace's windows, tray, show desktop.
+
+A second bar along the bottom of every screen, plugin id
+`io.github.cwilliams5.transom`. It's as tall as Omarchy's top bar and follows
+its look: theme colors, font, and the clear/glassy/opaque background chosen
+for the top bar. It holds widgets in left, center and right sections: the
+**taskbar buttons** (`tasks`, one per window) in the center; on the right a
+**system tray**, any of **Omarchy's own widgets** (network, battery…), and a
+**show desktop** button in the corner.
+
+(A transom is the horizontal bar across a window. This one sits across all
+of yours.)
+
+## Settings: where they live, how to change them
+
+**`~/.config/omarchy/transom.json`** says which widgets sit in which
+section, and each widget's settings. Until it exists, the plugin's
+`defaults.json` is used. Three ways to change it, all applied live:
+
+- **Right-click empty bar space** for the bar menu (below).
+- **Right-click a tray icon** for Pin/Unpin and Hide.
+- **Edit the file** (the bar menu's "Transom settings…" opens it), or from a
+  terminal: `omarchy-shell transom set <widget> '<json>'`, for example
+  `omarchy-shell transom set tray '{"maxIcons": 3}'`. `null` removes a
+  setting.
+
+Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
+`"bar"` object at the top holds bar-wide options:
+
+| Option | Default | What |
+|---|---|---|
+| `maximizedRaiseWorkaround` | `true` | Works around a Hyprland 0.56.2 bug when bringing a maximized window forward (see "Maximized windows and stacking"). Temporary: turn off and remove once Hyprland fixes it. |
+
+`"enabled": false` keeps a widget's settings but takes it off the bar. Leave a
+setting out to get its default. A bad value is ignored, and the shell log says
+why (the diagnostics commands list them too).
+
+The file is outside the plugin folder on purpose. Omarchy reloads the whole
+plugin whenever anything in its folder changes, and an update of the plugin
+shouldn't touch anyone's settings.
+
+## Bar menu
+
+Right-click any empty part of the bar, including the sides of the taskbar:
+
+| Row | Does |
+|---|---|
+| Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
+| ⤷ Centered, Icons only | Its `align` and `labels` |
+| ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
+| System tray ✓ | Show or hide the tray |
+| ⤷ Overflow "^" | Its `overflow` |
+| ⤷ Windows-style left click | Its `replaceLeftClick` |
+| ⤷ Show hidden: *name* | One per hidden icon; brings it back |
+| Show desktop ✓ | Show or hide the show-desktop button |
+| Omarchy widgets › | A page listing every Omarchy bar widget: ✓ puts it on this bar. "· top bar" marks the ones also on Omarchy's bar. |
+| Task manager | Omarchy's Activity (btop), as Super+Shift+T |
+| Transom settings… | Opens `transom.json` in the editor |
+
+Toggles keep the menu open; the last two close it.
+
+## Taskbar buttons (`tasks`)
+
+One button per window on the screen's current workspace, in the order they
+opened, plus the windows **minimized from** that workspace (dimmed). A window
+minimized on workspace 1 shows on workspace 1's taskbar only.
+
+| Action | Result |
+|---|---|
+| Left click | Focus the window, or bring a minimized one back. Clicking the window that's already active does nothing (or minimizes it: `activeClick`). |
+| Middle click | Close it |
+| Right click | Menu: New window, Minimize/Restore, Move to workspace 1–5, Float/Tile, Close |
+| Scroll | Step to the next or previous window (minimized ones are skipped) |
+| Drag | Reorder. The order lasts until the shell restarts; new windows go last. |
+| Hover | Full title in a tooltip, when it's cut off or hidden |
+| Super+M | Minimize the active window, on any workspace (`~/.config/hypr/transom.lua` runs `./minimize`) |
+
+Buttons are about 180px with icon and title. They shrink evenly when they
+don't all fit, then go icon-only. Titles are cut off with "…" and never
+scroll. The row is centered on the screen. Windows asking for attention get
+a steady tint, never a flash. There are no thumbnail previews, on purpose.
+The bar hides under a real fullscreen window and when the top bar is hidden.
+
+### Tasks settings
+
+On the `tasks` entry. The spec is `SETTINGS` in `TasksModel.js`, checked
+by `Settings.js`.
+
+| Setting | Default | Options |
+|---|---|---|
+| `align` | `"center"` | `"center"` (on the screen, like Windows 11), `"left"` (like Windows 10) |
+| `labels` | `"title"` | `"title"` (icon + title), `"icon"` (always icon-only) |
+| `buttonWidth` | `180` | Button width in px before shrinking to fit (40–600) |
+| `minTextWidth` | `90` | Narrower than this, buttons go icon-only (0–600) |
+| `windows` | `"workspace"` | `"workspace"`: this workspace's windows plus those minimized from it. `"monitor"`: every workspace on this screen. `"all"`: every window. |
+| `minimized` | `"dimmed"` | `"dimmed"`, `"normal"`, `"hidden"` |
+| `activeClick` | `"nothing"` | Clicking the active window: `"nothing"`, `"minimize"` (the Windows default) |
+| `middleClick` | `"close"` | `"close"`, `"nothing"` |
+| `tooltip` | `true` | Full title on hover, when it's cut off or hidden |
+| `tooltipDelay` | `600` | ms of hovering before the tooltip shows (0–5000) |
+| `scroll` | `true` | Scroll over the taskbar to step through windows |
+| `reorder` | `true` | Drag buttons to reorder |
+| `urgentTint` | `true` | Steady tint on windows asking for attention |
+| `workspaces` | `5` | Workspaces in the menu's "Move to" (1–10) |
+
+Example: left-aligned, icon-only, every window on the screen:
+
+```json
+{ "id": "tasks", "align": "left", "labels": "icon", "windows": "monitor" }
+```
+
+## System tray
+
+The icons apps show while running in the background, like Steam, Discord,
+Notion, or Chrome with "continue running background apps" on. Apps publish
+them over StatusNotifierItem, Linux's notification area, which Quickshell's
+`SystemTray` reads. It's the same list Omarchy's top-bar tray shows; only one
+of the two should be on screen. Cody's top bar has `omarchy.tray` turned
+off (`omarchy plugin disable omarchy.tray`; `enable` brings it back).
+
+| Action | Result |
+|---|---|
+| Left click | The app's own action first. If nothing happens, Windows-style: bring its window forward (restoring it if minimized), else start it from its launcher (a running single-instance app then shows its window), else open its menu. See below. |
+| Middle click | The app's secondary action |
+| Right click | The app's menu, drawn in the theme's style, with submenus opening in place behind a back row. Below it: **Pin to bar** / **Unpin from bar**, and **Hide this icon**. Icons without a menu get just those two. |
+| Drag | Reorder the icons on the bar (saved as `order`). It doesn't pin them. Apps that aren't running keep their place in the order. Icons in the flyout don't drag. |
+| Scroll | Passed to the app (some use it) |
+| "^" | Flyout with the icons that didn't fit |
+
+**Left click, in detail.** Each app decides what a click on its icon does.
+Some do something real: Discord toggles its window, Flameshot takes a
+screenshot, a network applet pops up. Others do nothing at all: Chrome and
+Notion take the click and ignore it. Steam's AppIndicator icon is only a
+menu. So:
+
+1. The click goes to the app. An icon that says it's only a menu
+   (`ItemIsMenu`) opens its menu instead, which is the app's own answer.
+2. `replaceLeftClickWaitMs` (300) later, the tray looks again. If any of the
+   app's windows appeared, disappeared or took focus, the app handled it,
+   and that's that. (So Discord's click-to-hide still works.)
+3. Otherwise it steps in: bring the app's window forward; if it has none,
+   start it from its launcher; if there's no launcher, open its menu.
+
+`replaceLeftClick: false` turns steps 2 and 3 off everywhere. `nativeClick`
+turns them off for the listed apps, for one whose own click does something
+invisible (toggling a VPN, say), where stepping in would be a second action.
+
+The tray can't tell which app owns an icon (Quickshell's tray items carry no
+process id). So `./tray-window <icon id> <name>` asks D-Bus for the icon's
+process and lists that process's windows, children included. The window it
+picks to bring forward is never a Chromium web app's: Chrome and its web apps
+are one process, but each web app is its own app with its own taskbar
+button. A window whose class contains the icon's name comes first (`chrome`
+finds `google-chrome`), then the most recently used. With only web apps open,
+Chrome counts as having no window, so the click starts it. Run the script by
+hand to see what a click would do. To pick the "before" view, the tray runs
+it when the pointer reaches the icon, so the app's own click isn't delayed.
+
+Icons an Omarchy widget already shows are left out automatically, as on the
+top bar. Superwhisper's icon is left out while its widget is on either bar.
+
+### Tray settings
+
+| Setting | Default | Options |
+|---|---|---|
+| `overflow` | `true` | `false` shows every icon on the bar |
+| `maxIcons` | `6` | Icons on the bar before the rest go behind "^" (0–50). Pinned icons don't count against it. |
+| `pinned` | `[]` | Names never put in the overflow, even past `maxIcons`. Set from the icon's menu. |
+| `order` | `[]` | Names in the order the icons sit, set by dragging. Icons it doesn't name yet follow: pinned ones, then the rest in the order they appeared. The unpinned icons last in the order overflow first. |
+| `hidden` | `[]` | Names never shown |
+| `tooltip` | `true` | The app's name on hover |
+| `tooltipDelay` | `600` | ms of hovering before it shows (0–5000) |
+| `iconSize` | `16` | Tray icon size in px (8–32). Omarchy's own tray and widget glyphs are 12. Every icon sits on the same 27px grid either way. |
+| `replaceLeftClick` | `true` | Step in when an app ignores a left click (see above) |
+| `replaceLeftClickWaitMs` | `300` | ms the app gets before the tray steps in (0–5000) |
+| `nativeClick` | `[]` | Names whose left click only ever goes to the app |
+| `restoreTo` | `"origin"` | Where a click brings back an app's minimized window: `"origin"`, the workspace it was minimized from (the screen switches there), or `"current"`, this one |
+
+**Names** match any part of an icon's id, title or tooltip, ignoring case,
+so `"steam"` matches Steam's icon. Apps name their icons loosely: Notion's id
+went from `Notion_status_icon_6` to `_7` between launches, so the short name
+is what sticks. To see every icon with its name and where it goes:
+
+```bash
+omarchy-shell transom tray
+```
+
+Example: Steam and Discord always visible, at most 3 icons, Chrome's hidden:
+
+```json
+{ "id": "tray", "maxIcons": 3, "pinned": ["steam", "discord"], "hidden": ["chrome"] }
+```
+
+## Show desktop
+
+A thin button in the bar's corner, as on Windows: a click minimizes every
+window on the workspace; the next click brings those back, and the one that
+was active last gets focus. If anything was opened or brought back in
+between, the click minimizes everything again. The minimized windows are
+ordinary ones: they're on the taskbar, dimmed. Entry
+`{ "id": "showdesktop" }`; settings `width` (px, default 10) and `tooltip`.
+It's last in the right section, flush with the corner.
+
+## Omarchy's own widgets (network, power, bluetooth…)
+
+Any of Omarchy's bar widgets can sit on the bottom bar, unchanged. Tick it on
+the bar menu's "Omarchy widgets" page, or add its id to a section, e.g.
+`{ "id": "omarchy.network" }` after the tray. Ids are the
+same as the top bar's (`omarchy plugin list`). It's the same widget code Omarchy's
+top bar runs, with its real panel, which opens upward.
+
+- **How:** `widgets/OmarchyWidget.qml` loads the widget from Omarchy's widget
+  catalogue (the `barWidgetRegistry` the plugin host hands this service). It
+  gives the widget `ui/OmarchyBarApi.qml` as its `bar`, mirroring Omarchy's
+  `PluginBarApi` (its interface for widgets on other bars) plus a few extras.
+  No widget is rebuilt.
+- **Panel buttons that open other panels** (the network panel's Wi-Fi QR and
+  speed test) go through `omarchy-shell shell summon`, because this plugin's
+  own shell access can't open them. **Options a widget saves** (the power
+  widget's battery percentage) are saved on its entry here.
+- **Moving one off the top bar:** drag it off Omarchy's bar, or delete its
+  entry from `bar.layout` in `~/.config/omarchy/shell.json`. **Don't** use
+  `omarchy plugin disable` for a widget wanted here. Omarchy's built-in
+  widgets stay in the catalogue while they're merely off its bar, but a
+  disabled plugin may not. Options set on the top bar's entry (e.g. the
+  power widget's `showPercentage`) move to this bar's entry by hand.
+- **Keyboard shortcuts and menu items that open a widget's panel** open the top
+  bar's copy while the widget is on both bars (the first copy registers the
+  command). Remove it from the top bar to make the bottom one the target.
+- **Tooltips:** a widget's own tooltip text shows, as on the top bar. A
+  widget that gives none gets no tooltip, not an empty bubble.
+- **If an Omarchy update breaks one:** compare `ui/OmarchyBarApi.qml` with
+  `/usr/share/omarchy/shell/Ui/PluginBarApi.qml`, and with what the widget
+  reads from `bar.`, in its folder under `/usr/share/omarchy/shell/plugins/`.
+  Tested 2026-11-17 on Omarchy 4.5.0-3 with `omarchy.network`.
+
+## Files
+
+| File | What |
+|---|---|
+| `manifest.json` | Plugin id `io.github.cwilliams5.transom`, kind `service`. Turned on by its entry in `plugins` in `~/.config/omarchy/shell.json`. |
+| `Service.qml` | Reads the look and the layout, saves settings (`updateWidget`), runs Hyprland commands and app launches for the widgets, the one-popup-at-a-time rule, the diagnostics commands. Opens a `BarWindow` per screen. Also the list of widget ids (`widgets`). |
+| `BarWindow.qml` | One screen's bar: background, the three sections, loading widgets into them, the right-click on empty space. |
+| `BarMenu.qml` | The bar's right-click menu. |
+| `defaults.json` | The layout and settings used until `~/.config/omarchy/transom.json` exists. |
+| `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |
+| `widgets/Tray.qml` | The system tray: icons, "^" flyout, app menus, pin/hide, drag. |
+| `widgets/OmarchyWidget.qml`, `ui/OmarchyBarApi.qml` | Hosting Omarchy's own widgets (see above). |
+| `widgets/ShowDesktop.qml` | The show-desktop button. |
+| `TasksModel.js`, `TrayModel.js` | Each widget's settings spec and pure logic (which windows or icons show, order, sizes, pins). |
+| `Settings.js` | Checks a widget's layout entry against its spec. |
+| `Reorder.js` | Drag-to-reorder math, shared by the taskbar and the tray. |
+| `tray-window` | For a tray icon's left click: its app's process and most recent window (see System tray). |
+| `ui/AnchoredPopup.qml` | Base of every popup: sits above an item, closes on an outside click. Handles the two popup traps (see Developing). |
+| `ui/TooltipPopup.qml`, `ui/MenuCard.qml`, `ui/MenuItemRow.qml` | Tooltip, menu card and menu row in Omarchy's popup style. |
+| `tests/run.js` | Tests for the `.js` files: `node tests/run.js` |
+| `minimize` | Minimizes a window (the active one, or an address). Omarchy's minimize minus its floating-only check. |
+
+## Adding a widget
+
+1. Create `widgets/<Name>.qml`, an `Item` with `implicitWidth`/`implicitHeight`.
+   It can declare any of these, which the bar fills in:
+   - `bar`: the service, for `foreground`, `background`, `urgent`, `fontFamily`, `barSize`, `pluginDir`, `topBarLayout`
+   - `panel`: this screen's bar window, for `panel.screen`
+   - `settings`: its layout entry. Give the widget a `SETTINGS` spec in a model `.js` file and read it with `Settings.parse(settings, SPEC)`.
+   - `screenCenterX`: the screen's center in its own coordinates
+   - `fills: true`: take all the width left in the center section
+2. Build popups from `ui/` (`import "../ui"`): `AnchoredPopup`, `TooltipPopup`,
+   `MenuCard`, `MenuItemRow`. Before opening one, call
+   `bar.claimPopup(<the widget>)`, and give the widget a `closePopups()`
+   function. That keeps one popup open at a time across the bar, and a click
+   on empty bar space closes it.
+3. Add its id to `widgets` in `Service.qml`.
+4. Put `{ "id": "<id>" }` in a section of `defaults.json` (and your own `transom.json`). To save settings from the widget, call `bar.updateWidget("<id>", { … })`.
+
+Omarchy's built-in widgets (like `omarchy.network`) can't be dropped in yet.
+They expect the top bar's internals; an adapter for them is being tried.
+
+## How it fits with Omarchy
+
+- **Not a "bar" plugin.** Omarchy's `bar` kind replaces the top bar rather
+  than adding one, so this is a `service` that opens its own layer-shell
+  windows.
+- **Namespace `omarchy-bar`** (the top bar's), on purpose: Hyprland's layer
+  rules for the top bar then apply here too. Those are the glassy blur, no
+  slide-in animation, and the window-glassy toggle.
+- **Minimize protocol:** a minimized window sits on `special:minimized` with
+  the tag `omarchy-minimized-from-<workspace id>`. Omarchy's own minimize (the
+  titlebar button on floating workspaces) does the same, so the taskbar shows
+  windows minimized either way.
+- **Omarchy's dock** (`omarchy.dock`) is turned off (2026-11-17), since this
+  taskbar replaces it. Back on: `omarchy plugin enable omarchy.dock`, then
+  `chezmoi re-add ~/.config/omarchy/shell.json`.
+- **Popup traps** (both handled in `ui/AnchoredPopup.qml`):
+  - Outside clicks close a popup through a `HyprlandFocusGrab`, set up like
+    Omarchy's `PopupCard`. The grab arms 50ms after the popup appears, so the
+    popup is in its allowed list. Armed too early, every click on a menu
+    counted as outside and closed it before the option ran. If menu options
+    ever stop responding, check the log for "menu closed by a click outside
+    it".
+  - A popup keeps its last anchor after it closes. Clearing the anchor while
+    it was still on screen moved it to the bar's corner for a frame.
+- **Maximized windows and stacking** (bar option `maximizedRaiseWorkaround`,
+  temporary): Hyprland 0.56.2 keeps drawing floating windows over a
+  maximized window even after the maximized one gets focus. Neither
+  `alter_zorder` nor `bring_to_top` changes that, and the windows left on top
+  look clickable but aren't. So when the bar brings forward a maximized
+  window (`raiseSteps` in `Service.qml`), it un-maximizes it, raises it and
+  maximizes it again, with animation off. Reproduced 2026-11-17 with two
+  solid-colored `foot` windows on a spare workspace. Omarchy's dock and
+  keyboard focus have the same problem. Floating workspaces no longer hit
+  it: their maximize is now `~/.config/hypr/fake_maximize.lua` (a resize, so
+  `fullscreen` stays 0; see `fake_maximize.md` next to it). This workaround
+  still matters on tiled and scrolling workspaces. Keep `isMaximized` meaning
+  real maximized (`fullscreen == 1`); fake-maximized windows only need the
+  plain raise. **On hold** until Hyprland 0.57.2+,
+  which may fix it. The dotfiles repo's
+  `docs/upstream/hyprland-maximized-float-stacking/README.md` has the
+  re-test, and the steps to remove this workaround.
+- **App tray menus** are drawn by us. Qt's native menus can't open in
+  Omarchy's shell (it isn't started in QApplication mode), as Omarchy's own
+  tray notes.
+- **Third-party plugin limits:** no access to Omarchy's app library or the
+  full shell config, so apps launch with `uwsm-app -- gtk-launch` (as
+  Omarchy's launcher does) and the layout lives in its own file, not
+  `shell.json`.
+
+## Developing
+
+- **Tests:** `node tests/run.js` covers the pure logic (`*.js`).
+- **Clicking from a script:** `dev/vclick.py` clicks through Wayland's
+  virtual-pointer protocol (Python only; `--click-here` clicks where the
+  pointer is). `dev/clicklog.py` runs in a test terminal and counts the clicks
+  it receives. On a 2x-scaled screen Hyprland confines a virtual pointer to
+  the top-left quarter, so place the pointer with
+  `hyprctl dispatch 'hl.dsp.cursor.move({ x = X, y = Y })'` and then
+  `vclick.py --click-here`.
+- **Restart the shell after editing QML:** `omarchy restart shell`. Saving a
+  file here triggers Omarchy's plugin reload, but QML files that are already
+  loaded stay cached, so the reload runs the old code. (Seen 2026-11-17: the
+  log kept pointing at line numbers of the previous version.) The restart
+  refuses while the screen is locked.
+- **Logs:** `/run/user/$UID/quickshell/by-pid/<shell pid>/log.log`. Get the pid
+  with `pgrep -f 'quickshell -n -p /usr/share/omarchy/shell'`. Grep for
+  `transom:`.
+- **Check the bar exists:**
+  `hyprctl layers -j | jq '.. | objects | select(.namespace? == "omarchy-bar")'`
+  lists the top bar and this one, which is `h=26` at the bottom.
+- **What the taskbar sees:** `omarchy-shell transom windows` prints every
+  window with its workspace, tags, the workspace it was minimized from, and
+  which screens' taskbars show it. Start here when a window is missing.
+- **What the tray sees:** `omarchy-shell transom tray` prints every tray
+  icon, its name for `pinned`/`hidden`, and where it goes.
+- **Window data:** Quickshell keeps `workspace` and `title` current, but
+  `lastIpcObject` (tags, floating, fullscreen) only changes on
+  `Hyprland.refreshToplevels()`. `Service.qml` calls that after window
+  events.
+- **Lists from `lastIpcObject` aren't JS arrays.** `tags` arrives as a Qt
+  `V4Sequence`: indexable with a `length`, but `Array.isArray` is false. Use
+  `TasksModel.toList()`. (This hid every minimized window in the first
+  version.)
+- **Dispatch syntax** is Hyprland's Lua API (`hl.dsp.window.move({ … })`).
+  Copy forms from `/usr/share/omarchy/default/hypr/` and Omarchy's dock
+  (`/usr/share/omarchy/shell/plugins/dock/Dock.qml`).
+- Tracked in the dotfiles repo (`~/Work/dotfiles`). After changes:
+  `chezmoi add ~/.config/omarchy/plugins/io.github.cwilliams5.transom`, then commit and push.
+
+## Not built yet
+
+- Very long tray menus don't scroll yet
+- Translations (menus and tooltips are English only)
+- Its own public repo, so others can install it with `omarchy plugin add`
+  (it lives in Cody's dotfiles for now)
+
+Decided against: grouping windows by app, thumbnail previews, flashing for
+attention, a per-window audio indicator or volume slider. Omarchy's sound
+menu already has per-app volume, and Chrome and its web apps share one
+process, so sound can't be tied to one of their windows.

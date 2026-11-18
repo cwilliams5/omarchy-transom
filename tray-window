@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# For a Windows-style left click on a tray icon: which window its app has
+# open, and whether the icon is menu-only.
+# Usage: tray-window <tray icon id> [name]  (ids and names: omarchy-shell bottom-bar tray)
+#
+# Prints one JSON object:
+#   {"pid": 1234, "menuOnly": false, "window": "0x55…", "minimized": false,
+#    "minimizedFrom": 1, "windows": ["0x55…", …], "focused": "0x55…"}
+# pid is the process behind the icon's D-Bus connection. windows are all the
+# windows of that process or its child processes (Steam draws its windows
+# from a child); window is the one a click should bring forward, or null:
+# never a Chromium web app's window (Chrome and its web apps are one
+# process, but each web app is its own app with its own taskbar button),
+# preferring a window whose class contains the icon's name ("chrome" finds
+# google-chrome), then the most recently focused;
+# focused is whichever of them has focus right now, or null; minimizedFrom
+# is the workspace a minimized window left (its omarchy-minimized-from tag). The tray
+# compares two of these, before and after a click, to see whether the app
+# reacted. menuOnly is true for icons that are only a menu: ItemIsMenu set,
+# or an AppIndicator (Steam's kind).
+#
+# The tray can't tell which app owns an icon by itself (Quickshell's tray
+# items carry no process id), and app names don't match window classes
+# reliably, so this goes by process instead.
+
+set -u
+want=${1:-}
+name=${2:-}
+none='{"pid": null, "menuOnly": false, "window": null, "minimized": false, "windows": [], "focused": null}'
+
+items=$(busctl --user --json=short get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+  org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems 2>/dev/null | jq -r '.data[]?')
+
+for item in $items; do
+  # ":1.52/StatusNotifierItem", or a bare bus name with the default path.
+  bus=${item%%/*}
+  path=/StatusNotifierItem
+  [[ $item == */* ]] && path="/${item#*/}"
+
+  id=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem Id 2>/dev/null | jq -r '.data // empty')
+  [[ -n $want && $id == "$want" ]] || continue
+
+  pid=$(busctl --user --json=short call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus \
+    GetConnectionUnixProcessID s "$bus" 2>/dev/null | jq -r '.data[0] // empty')
+  is_menu=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem ItemIsMenu 2>/dev/null | jq -r '.data // false')
+  menu_path=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem Menu 2>/dev/null | jq -r '.data // empty')
+  menu_only=false
+  [[ $is_menu == true || $path == */ayatana/* || $menu_path == */ayatana/* || $menu_path == */NotificationItem/* ]] && menu_only=true
+
+  if [[ ! $pid =~ ^[0-9]+$ ]]; then
+    jq -cn --argjson menuOnly "$menu_only" '{pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
+    exit 0
+  fi
+
+  # Every process's parent, to find windows of the app's child processes.
+  parents=$(ps -eo pid=,ppid= | awk '{printf "\"%s\":%s,", $1, $2}')
+  active=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty')
+  hyprctl clients -j | jq -c --argjson owner "$pid" --argjson menuOnly "$menu_only" --arg active "$active" --arg name "$name" --argjson parents "{${parents%,}}" '
+    def descends($p): if $p == $owner then true
+      elif ($p <= 1) or ($parents[($p|tostring)] == null) then false
+      else descends($parents[($p|tostring)]) end;
+    [ .[] | select(.mapped != false and .hidden != true)
+          | select((.workspace.name | startswith("special:") | not) or .workspace.name == "special:minimized")
+          | select(descends(.pid)) ]
+    | sort_by(.focusHistoryID) as $mine
+    | def webapp: (.class // "") | test("^(chrome|chromium|brave|msedge|vivaldi)-.*__"; "i");
+      def named: $name != "" and ((.class // "") | ascii_downcase | contains($name | ascii_downcase));
+      ($mine | map(select(webapp | not)) | sort_by([(if named then 0 else 1 end), .focusHistoryID]) | .[0]) as $w
+    | {pid: $owner, menuOnly: $menuOnly,
+       window: ($w.address // null),
+       minimized: (($w.workspace.name // "") == "special:minimized"),
+       minimizedFrom: ([($w.tags // [])[] | capture("^omarchy-minimized-from-(?<n>[0-9]+)")? | .n | tonumber][0] // null),
+       windows: [$mine[].address],
+       focused: ([$mine[].address | select(. == $active)][0] // null)}'
+  exit 0
+done
+
+echo "$none"

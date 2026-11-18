@@ -1,0 +1,44 @@
+{
+  "bar": {
+    "maximizedRaiseWorkaround": true
+  },
+  "left": [],
+  "center": [
+    {
+      "id": "tasks",
+      "align": "center",
+      "labels": "title",
+      "buttonWidth": 180,
+      "minTextWidth": 90,
+      "windows": "workspace",
+      "minimized": "dimmed",
+      "activeClick": "nothing",
+      "middleClick": "close",
+      "tooltip": true,
+      "tooltipDelay": 600,
+      "scroll": true,
+      "reorder": true,
+      "urgentTint": true,
+      "workspaces": 5
+    }
+  ],
+  "right": [
+    {
+      "id": "tray",
+      "overflow": true,
+      "maxIcons": 6,
+      "pinned": [],
+      "order": [],
+      "hidden": [],
+      "tooltip": true,
+      "tooltipDelay": 600,
+      "replaceLeftClick": true,
+      "replaceLeftClickWaitMs": 300,
+      "nativeClick": [],
+      "restoreTo": "origin"
+    },
+    {
+      "id": "showdesktop"
+    }
+  ]
+}

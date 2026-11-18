@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.cwilliams5.transom",
+  "name": "Transom",
+  "version": "0.1.0",
+  "author": "Cody Williams",
+  "description": "A Windows-style taskbar for Omarchy: start button, quick launch, this workspace's windows, tray, show desktop.",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}
