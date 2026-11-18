@@ -75,6 +75,13 @@ Item {
     if ("settings" in target) target.settings = host.settings
   }
 
+  // Going away with its bar (a screen removed): the widget's own teardown
+  // talks to its bar, which is going too. Cut it loose first.
+  Component.onDestruction: {
+    var target = loader.item
+    if (target && "bar" in target) target.bar = null
+  }
+
   Component.onCompleted: {
     if (!host.component && host.widgetId) console.warn("transom: Omarchy has no bar widget called " + host.widgetId)
   }

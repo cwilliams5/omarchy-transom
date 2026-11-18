@@ -467,6 +467,14 @@ test("moveEntry: no change gives null", () => {
   assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", "omarchy.power"), null)
 })
 
+test("accept rules validate custom values", () => {
+  const spec = { screens: { default: "all", hint: "all or names", accept: (v) => v === "all" ? v : Array.isArray(v) && v.length ? v : undefined } }
+  assert.deepStrictEqual(S.parse({ screens: ["DP-1"] }, spec).settings.screens, ["DP-1"])
+  const bad = S.parse({ screens: 3 }, spec)
+  assert.strictEqual(bad.settings.screens, "all")
+  assert.deepStrictEqual(bad.problems, ["screens must be all or names (got 3)"])
+})
+
 // --------------------------------------------------------------- grouping
 
 const wins = [

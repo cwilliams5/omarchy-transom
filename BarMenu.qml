@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 import "Settings.js" as Settings
 import "TasksModel.js" as TasksModel
@@ -66,6 +67,15 @@ AnchoredPopup {
       checkColumn: true
       checked: !!menu.bar && menu.bar.locked
       onTriggered: menu.change("bar", { locked: !checked })
+    }
+
+    // Windows' "Show taskbar on all displays", once there's more than one.
+    MenuItemRow {
+      visible: menu.page === "main" && Quickshell.screens.length > 1
+      text: "Show on all displays"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.settings.screens === "all"
+      onTriggered: menu.change("bar", { screens: checked ? "primary" : "all" })
     }
 
     // Windows' wording again: hidden until the pointer reaches the edge.

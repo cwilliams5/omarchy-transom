@@ -7,7 +7,9 @@
 // of them; a boolean takes true or false; a number takes any number, rounded
 // and clamped to min..max; a list ([]) takes a list of non-empty strings,
 // or, with item: function(value, index), whatever that function makes of
-// each element (null skips it).
+// each element (null skips it). Any rule can instead have
+// accept: function(value), returning the value to use, or undefined to
+// reject it (hint then says what's wanted).
 // Anything else is ignored and reported, so a typo never breaks the bar.
 
 // A list from QML as a plain array. A list that came through a QML property
@@ -35,7 +37,11 @@ function parse(entry, spec) {
     if (!(key in source) || source[key] === undefined) continue
     var value = source[key]
     var shown = JSON.stringify(value)
-    if (rule.choices) {
+    if (rule.accept) {
+      var accepted = rule.accept(value)
+      if (accepted !== undefined) settings[key] = accepted
+      else problems.push(key + " must be " + (rule.hint || "valid") + " (got " + shown + ")")
+    } else if (rule.choices) {
       if (rule.choices.indexOf(value) >= 0) settings[key] = value
       else problems.push(key + " must be one of " + rule.choices.join(", ") + " (got " + shown + ")")
     } else if (typeof fallback === "boolean") {

@@ -175,7 +175,20 @@ Item {
     // How long after the pointer leaves the bar it hides (ms).
     autohideDelay: { default: 600, min: 0, max: 10000 },
     // How it appears and goes: at once, or sliding (a short slide).
-    reveal: { default: "instant", choices: ["instant", "slide"] }
+    reveal: { default: "instant", choices: ["instant", "slide"] },
+    // Which screens get a bar: "all", "primary" (Hyprland's first
+    // monitor), or a list of monitor names like ["eDP-1"].
+    screens: {
+      default: "all",
+      hint: "\"all\", \"primary\" or a list of monitor names",
+      accept: function(value) {
+        if (value === "all" || value === "primary") return value
+        var list = Settings.toList(value)
+        if (!list) return undefined
+        list = list.filter(function(name) { return typeof name === "string" && name.trim() !== "" })
+        return list.length > 0 ? list.map(function(name) { return name.trim() }) : undefined
+      }
+    }
   })
   readonly property var parsedBarSettings: Settings.parse(layout.bar, barSettingsSpec)
   readonly property var settings: parsedBarSettings.settings
@@ -643,8 +656,30 @@ Item {
 
   // --------------------------------------------------------------- screens
 
+  // The screens that get a bar (bar option screens). Names that match no
+  // connected monitor fall back to every screen, so an unplugged monitor
+  // never leaves the bar nowhere.
+  readonly property var barScreens: {
+    var all = Settings.toList(Quickshell.screens) || []
+    var wanted = root.settings.screens
+    if (wanted === "all" || all.length <= 1) return all
+    var names = []
+    if (wanted === "primary") {
+      var monitors = Settings.toList(Hyprland.monitors.values) || []
+      var first = null
+      for (var i = 0; i < monitors.length; i++) if (!first || monitors[i].id < first.id) first = monitors[i]
+      names = first ? [first.name] : []
+    } else {
+      names = wanted.map(function(name) { return name.toLowerCase() })
+    }
+    var picked = all.filter(function(screen) {
+      return names.some(function(name) { return name.toLowerCase() === String(screen.name).toLowerCase() })
+    })
+    return picked.length > 0 ? picked : all
+  }
+
   Variants {
-    model: Quickshell.screens
+    model: root.barScreens
 
     delegate: Component {
       BarWindow {

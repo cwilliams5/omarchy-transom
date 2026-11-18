@@ -37,6 +37,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | `autohide` | `false` | Windows' "Automatically hide the taskbar". See "Auto-hide". |
 | `autohideDelay` | `600` | ms after the pointer leaves before it hides (0-10000) |
 | `reveal` | `"instant"` | How it comes and goes: `"instant"` or `"slide"` (a 150ms slide) |
+| `screens` | `"all"` | Which screens get a bar: `"all"`, `"primary"` (Hyprland's first monitor), or monitor names like `["eDP-1", "DP-2"]` (`hyprctl monitors` lists them). Names that match nothing connected fall back to all. |
 | `iconStyleExceptions` | `[]` | Names whose icons stay in color, e.g. `["spotify"]` (any part of the app id or name, any case) |
 | `maximizedRaiseWorkaround` | `true` | Works around a Hyprland 0.56.2 bug when bringing a maximized window forward (see "Maximized windows and stacking"). Temporary: turn off and remove once Hyprland fixes it. |
 
@@ -55,6 +56,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Row | Does |
 |---|---|
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
+| Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
 | Icons: … | Cycles `iconStyle`: color → gray → theme color |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
@@ -292,6 +294,22 @@ lands on the right; drag it to the left). Take it off the top bar's
   as Super+Alt+Space. It opens in the middle of the screen, as Omarchy's menu
   always does; it has no option to open from a corner.
 - **Right click:** a new terminal (Omarchy's choice for this button).
+
+## Several screens
+
+Every screen gets its own bar (or just some: the `screens` option), each with
+the same layout. Each screen's taskbar buttons show that screen's workspace
+(`windows`: "this workspace" or "this screen"; "all" shows everything
+everywhere), show desktop and the tray's restore act on that screen's
+workspace, and menus and Omarchy's panels open on the screen that was
+clicked.
+
+Tested 2026-11-18 with a virtual second monitor
+(`hyprctl output create headless`): a second bar, a window on it shown only
+on its taskbar, the bar menu and the battery panel opening there, and
+`screens` all/primary/by name. Omarchy's panels for a widget on both bars
+log "handler was registered but will not be used" once: the first copy owns
+the panel's command, as with the top bar.
 
 ## Auto-hide
 
