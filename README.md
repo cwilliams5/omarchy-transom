@@ -675,8 +675,7 @@ They expect the top bar's internals; an adapter for them is being tried.
 
 - Very long tray menus don't scroll yet
 - Translations (menus and tooltips are English only)
-- Public release: the repo is private for now; next come going public and
-  a listing on omarchyplugins.com
+- A listing on omarchyplugins.com
 
 Decided against: flashing for attention, and a per-window audio indicator
 or volume slider. Omarchy's sound menu already has per-app volume, and
