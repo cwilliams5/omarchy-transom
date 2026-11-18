@@ -19,7 +19,7 @@ Item {
   readonly property var component: {
     var registry = bar ? bar.barWidgetRegistry : null
     var widgets = registry && registry.widgets ? registry.widgets : null
-    return widgets && widgets[widgetId] ? widgets[widgetId].component : null
+    return widgets && Object.prototype.hasOwnProperty.call(widgets, widgetId) && widgets[widgetId] ? widgets[widgetId].component : null
   }
   readonly property var widget: loader.item
 

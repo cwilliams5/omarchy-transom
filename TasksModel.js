@@ -122,7 +122,8 @@ function belongsTo(window, view) {
 // keys sorted by the user's order (from dragging). Keys the order doesn't
 // have yet keep their own order, after the ones it does.
 function applyOrder(keys, order) {
-  var rank = {}
+  // No prototype: keys come from windows (Object.create(null), not {}).
+  var rank = Object.create(null)
   for (var i = 0; i < (order || []).length; i++) rank[order[i]] = i
   var known = []
   var unknown = []
@@ -231,7 +232,9 @@ function groupButtons(windows, combine, crowded) {
   var single = function(window) { return { key: window.address, group: window.group || window.address, addresses: [window.address] } }
   if (combine !== "always" && !(combine === "full" && crowded)) return list.map(single)
   var out = []
-  var byGroup = {}
+  // No prototype: a group key can be an app id the window chose, and a
+  // plain object would already "have" groups like constructor or toString.
+  var byGroup = Object.create(null)
   for (var i = 0; i < list.length; i++) {
     var group = list[i].group || list[i].address
     if (byGroup[group]) {

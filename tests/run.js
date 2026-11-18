@@ -593,6 +593,36 @@ test("quick launch: agent names", () => {
   assert.strictEqual(Q.agentName(""), "Agent")
 })
 
+// ------------------------------------------- names that are also JS builtins
+
+const builtinNames = ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]
+
+test("builtin-named app ids group like any other", () => {
+  const windows = builtinNames.flatMap((name, i) => [
+    { address: "0xa" + i, group: name },
+    { address: "0xb" + i, group: name }
+  ])
+  const buttons = M.groupButtons(windows, "always", false)
+  assert.deepStrictEqual(buttons.map((b) => b.group), builtinNames)
+  assert.ok(buttons.every((b) => b.addresses.length === 2))
+})
+
+test("builtin-named keys order like any other", () => {
+  assert.deepStrictEqual(M.applyOrder(["constructor", "toString"], ["toString", "constructor"]), ["toString", "constructor"])
+})
+
+test("builtin names aren't quick launch specials or agent names", () => {
+  for (const name of builtinNames) {
+    assert.strictEqual(Q.normalizeItem(name, 0).special, "", name)
+    assert.strictEqual(typeof Q.agentName(name), "string", name)
+  }
+})
+
+test("builtin-named settings are reported as unknown", () => {
+  const { problems } = S.parse(JSON.parse('{"id": "tasks", "constructor": 1, "toString": 2}'), M.SETTINGS)
+  assert.deepStrictEqual(problems, ["unknown setting constructor", "unknown setting toString"])
+})
+
 // ------------------------------------------------------------ icon sources
 
 const fakeIconPath = (name) => "image://icon/" + name

@@ -75,7 +75,7 @@ function parse(entry, spec) {
   }
   // id and enabled belong to the bar, not the widget: every entry may have them.
   for (var extra in source) {
-    if (extra !== "id" && extra !== "enabled" && !(extra in spec)) problems.push("unknown setting " + extra)
+    if (extra !== "id" && extra !== "enabled" && !Object.prototype.hasOwnProperty.call(spec, extra)) problems.push("unknown setting " + extra)
   }
   return { settings: settings, problems: problems }
 }

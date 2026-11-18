@@ -113,7 +113,8 @@ Item {
   // Whether id is one of Omarchy's own bar widgets (omarchy.network...).
   function isOmarchyWidget(id) {
     var widgets = root.barWidgetRegistry && root.barWidgetRegistry.widgets ? root.barWidgetRegistry.widgets : null
-    return !!widgets && !!widgets[String(id || "")]
+    var key = String(id || "")
+    return !!widgets && Object.prototype.hasOwnProperty.call(widgets, key) && !!widgets[key]
   }
 
   // Omarchy hands over its widget catalogue a moment after the plugin
@@ -123,7 +124,7 @@ Item {
 
   function widgetUrl(id) {
     var key = String(id || "")
-    if (root.widgets[key]) return Qt.resolvedUrl(root.widgets[key])
+    if (Object.prototype.hasOwnProperty.call(root.widgets, key)) return Qt.resolvedUrl(root.widgets[key])
     if (root.isOmarchyWidget(key)) return Qt.resolvedUrl("widgets/OmarchyWidget.qml")
     if (root.catalogueReady) console.warn("transom: no widget called \"" + key + "\" (known: " + Object.keys(root.widgets).join(", ") + ", and Omarchy's)")
     return ""
@@ -184,7 +185,7 @@ Item {
         if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
         var out = { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false }
         for (var key in value) {
-          if (!(key in out) || typeof value[key] !== "boolean") return undefined
+          if (!Object.prototype.hasOwnProperty.call(out, key) || typeof value[key] !== "boolean") return undefined
           out[key] = value[key]
         }
         return out
@@ -265,7 +266,7 @@ Item {
 
   function agentIcons() {
     if (!root.agentId) return []
-    var base = root.omarchyPath + "/shell/plugins/agents/assets/" + (root.agentLogoNames[root.agentId] || root.agentId)
+    var base = root.omarchyPath + "/shell/plugins/agents/assets/" + (Object.prototype.hasOwnProperty.call(root.agentLogoNames, root.agentId) ? root.agentLogoNames[root.agentId] : root.agentId)
     return root.lightBar ? [base + "-light.svg", base + ".svg"] : [base + ".svg"]
   }
   onParsedBarSettingsChanged: {
@@ -362,7 +363,7 @@ Item {
     if (!entry) {
       entry = { id: id }
       // Show desktop stays at the very end, as on Windows.
-      var section = next[root.homeSection[id] || "right"]
+      var section = next[Object.prototype.hasOwnProperty.call(root.homeSection, id) ? root.homeSection[id] : "right"]
       var last = section.length > 0 && section[section.length - 1].id === "showdesktop" && id !== "showdesktop"
       section.splice(last ? section.length - 1 : section.length, 0, entry)
     }
@@ -379,7 +380,7 @@ Item {
   // aren't: the tray, the taskbar buttons and quick launch drag their icons
   // instead, and show desktop stays in the corner.
   function canDragWidget(id) {
-    return !root.locked && !root.widgets[String(id || "")] && root.isOmarchyWidget(id)
+    return !root.locked && !Object.prototype.hasOwnProperty.call(root.widgets, String(id || "")) && root.isOmarchyWidget(id)
   }
 
   // Moves a widget into section, before the widget beforeId (or to the
@@ -671,7 +672,7 @@ Item {
       }
       var shown = icons.filter(function(icon) { return !icon.passive })
       var arranged = TrayModel.arrange(shown, parsed.settings, [root.topBarLayout, root.layout])
-      var place = {}
+      var place = Object.create(null)
       arranged.bar.forEach(function(key) { place[key] = "bar" })
       arranged.overflow.forEach(function(key) { place[key] = "overflow" })
       arranged.left_out.forEach(function(key) { place[key] = "left out (hidden, or a widget shows it)" })

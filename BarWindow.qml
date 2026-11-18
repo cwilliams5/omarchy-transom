@@ -271,7 +271,7 @@ PanelWindow {
   property real dragStartX: 0
   property var dragSpot: null
   // How far each other side widget moves aside, by widget id.
-  property var dragShifts: ({})
+  property var dragShifts: Object.create(null)
 
   // A side section's widgets as { id, x, width } in bar coordinates,
   // leaving out the one being dragged.
@@ -311,7 +311,8 @@ PanelWindow {
   function updateDrag() {
     var sides = { left: window.sideWidgets("left"), right: window.sideWidgets("right") }
     var spot = Reorder.dropSpot(sides, window.dragStartX + window.dragOffset + window.dragWidth / 2, window.width / 2)
-    var shifts = {}
+    // Keyed by widget ids from the settings file: no prototype.
+    var shifts = Object.create(null)
     var edges = { left: leftSection.x, right: rightSection.x + rightSection.width }
     for (var side in sides) {
       var list = sides[side]
@@ -331,7 +332,7 @@ PanelWindow {
     window.dragId = ""
     window.dragSection = ""
     window.dragSpot = null
-    window.dragShifts = ({})
+    window.dragShifts = Object.create(null)
     window.dragOffset = 0
     if (!commit || !spot || !window.bar) return
     window.bar.moveWidget(id, spot.section, spot.index < list.length ? list[spot.index].id : "")

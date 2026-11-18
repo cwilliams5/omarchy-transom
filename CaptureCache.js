@@ -4,7 +4,7 @@
 // address and app id: Hyprland reuses addresses, and its no_screen_share
 // rules go by app.
 
-var known = {}
+var known = Object.create(null)
 
 function lookup(key) {
   return key && Object.prototype.hasOwnProperty.call(known, key) ? known[key] : undefined

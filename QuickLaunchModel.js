@@ -45,7 +45,8 @@ function normalizeItem(value, index) {
     return null
   }
   if (!item.app && !item.command) return null
-  if (!item.command && SPECIALS[item.app.toLowerCase()]) item.special = item.app.toLowerCase()
+  var lower = item.app.toLowerCase()
+  if (!item.command && Object.prototype.hasOwnProperty.call(SPECIALS, lower)) item.special = lower
   return item
 }
 
@@ -122,7 +123,8 @@ function agentName(id) {
   var names = { claude: "Claude Code", codex: "Codex", opencode: "OpenCode", copilot: "GitHub Copilot", "cursor-agent": "Cursor CLI", agy: "Antigravity" }
   var key = String(id || "").trim()
   if (!key) return "Agent"
-  return names[key] || key.charAt(0).toUpperCase() + key.slice(1)
+  if (Object.prototype.hasOwnProperty.call(names, key)) return names[key]
+  return key.charAt(0).toUpperCase() + key.slice(1)
 }
 
 if (typeof module !== "undefined") {

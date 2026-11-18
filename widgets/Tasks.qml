@@ -92,14 +92,16 @@ Item {
         })
       }
     }
-    var byKey = {}
+    // Maps keyed by window-supplied strings have no prototype, so a key
+    // like "constructor" is never mistaken for an existing entry.
+    var byKey = Object.create(null)
     for (var j = 0; j < found.length; j++) byKey[found[j].address] = found[j]
     var keys = TasksModel.applyOrder(found.map(function(entry) { return entry.address }), taskbar.bar ? taskbar.bar.windowOrder : [])
     return keys.map(function(key) { return byKey[key] })
   }
 
   readonly property var byAddress: {
-    var map = {}
+    var map = Object.create(null)
     for (var i = 0; i < shown.length; i++) map[shown[i].address] = shown[i]
     return map
   }
@@ -131,7 +133,7 @@ Item {
   }
 
   readonly property var buttonByKey: {
-    var map = {}
+    var map = Object.create(null)
     for (var i = 0; i < groupedButtons.length; i++) map[groupedButtons[i].key] = groupedButtons[i]
     return map
   }
