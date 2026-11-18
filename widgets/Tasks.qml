@@ -8,6 +8,7 @@ import "../Reorder.js" as Reorder
 import "../Settings.js" as Settings
 import "../TasksModel.js" as TasksModel
 import "../QuickLaunchModel.js" as QuickLaunchModel
+import "../IconSource.js" as IconSource
 import "../ui"
 
 // A Windows-style taskbar: one button per window on this screen's workspace,
@@ -221,8 +222,11 @@ Item {
       if (agent.length > 0) return agent.concat(["utilities-terminal"])
     }
     var entry = taskbar.entryFor(appId)
-    return [entry ? entry.icon : "", appId, String(appId).toLowerCase(), "application-x-executable"]
-      .filter(function(name) { return !!name })
+    // The window picks its own app id, so it's only ever a theme icon name
+    // (never a URL or a path: IconSource.js).
+    var name = IconSource.themeName(appId)
+    return [entry ? entry.icon : "", name, name.toLowerCase(), "application-x-executable"]
+      .filter(function(candidate) { return !!candidate })
   }
 
   // ------------------------------------------------------------- actions
@@ -812,11 +816,8 @@ Item {
   function iconUrl(appId) {
     var names = taskbar.iconsFor(appId)
     for (var i = 0; i < names.length; i++) {
-      var name = String(names[i])
-      if (name.indexOf("://") > 0) return name
-      if (name.charAt(0) === "/") return "file://" + name
-      var path = Quickshell.iconPath(name, true)
-      if (path) return path
+      var url = IconSource.resolve(names[i], function(iconName) { return Quickshell.iconPath(iconName, true) }, Quickshell.env("HOME"))
+      if (url) return url
     }
     return ""
   }
@@ -926,6 +927,7 @@ Item {
                 height: implicitHeight
                 maxWidth: Style.space(200)
                 maxHeight: Style.space(125)
+                fixedSize: true
                 toplevel: card.modelData ? card.modelData.toplevel : null
                 iconSources: card.modelData ? taskbar.iconsFor(taskbar.appIdOf(card.modelData.toplevel)) : []
               }

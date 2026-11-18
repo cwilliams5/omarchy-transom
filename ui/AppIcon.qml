@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Quickshell
 import qs.Commons as Commons
+import "../IconSource.js" as IconSource
 
 // An app's icon on the bar (taskbar buttons, tray, quick launch).
 //
@@ -50,14 +51,10 @@ Item {
   readonly property color barColor: Commons.Color.bar.background
   readonly property bool darkBar: 0.2126 * barColor.r + 0.7152 * barColor.g + 0.0722 * barColor.b < 0.5
 
-  // A theme icon name, a path or a URL, as something Image can load.
+  // A theme icon name, a path or a local URL, as something Image can load.
+  // Never a network URL (IconSource.js says why).
   function resolve(name) {
-    var value = String(name || "")
-    if (!value) return ""
-    if (value.indexOf("://") > 0) return value
-    if (value.charAt(0) === "/") return "file://" + value
-    if (value.indexOf("~/") === 0) return "file://" + Quickshell.env("HOME") + value.slice(1)
-    return Quickshell.iconPath(value, true) || ""
+    return IconSource.resolve(name, function(iconName) { return Quickshell.iconPath(iconName, true) }, Quickshell.env("HOME"))
   }
 
   Image {

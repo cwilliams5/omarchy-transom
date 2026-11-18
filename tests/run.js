@@ -6,6 +6,7 @@ const S = require(path.join(__dirname, "..", "Settings.js"))
 const T = require(path.join(__dirname, "..", "TrayModel.js"))
 const R = require(path.join(__dirname, "..", "Reorder.js"))
 const Q = require(path.join(__dirname, "..", "QuickLaunchModel.js"))
+const I = require(path.join(__dirname, "..", "IconSource.js"))
 
 let failures = 0
 function test(name, fn) {
@@ -590,6 +591,38 @@ test("quick launch: agent names", () => {
   assert.strictEqual(Q.agentName("claude"), "Claude Code")
   assert.strictEqual(Q.agentName("pi"), "Pi")
   assert.strictEqual(Q.agentName(""), "Agent")
+})
+
+// ------------------------------------------------------------ icon sources
+
+const fakeIconPath = (name) => "image://icon/" + name
+
+test("icon sources: an app id is only ever a theme icon name", () => {
+  assert.strictEqual(I.themeName("org.gnome.Nautilus"), "org.gnome.Nautilus")
+  assert.strictEqual(I.themeName("steam_icon_440"), "steam_icon_440")
+  assert.strictEqual(I.themeName("https://example.com/x.png"), "")
+  assert.strictEqual(I.themeName("/etc/passwd"), "")
+  assert.strictEqual(I.themeName("../../x"), "")
+  assert.strictEqual(I.themeName("a b"), "")
+  assert.strictEqual(I.themeName(""), "")
+})
+
+test("icon sources: only local URLs get through", () => {
+  assert.strictEqual(I.resolve("https://example.com/x.png", fakeIconPath, "/h"), "")
+  assert.strictEqual(I.resolve("HTTP://example.com/x.png", fakeIconPath, "/h"), "")
+  assert.strictEqual(I.resolve("ftp://example.com/x.png", fakeIconPath, "/h"), "")
+  assert.strictEqual(I.resolve("data:image/png;base64,AAAA", fakeIconPath, "/h"), "")
+  assert.strictEqual(I.resolve("image://icon/firefox", fakeIconPath, "/h"), "image://icon/firefox")
+  assert.strictEqual(I.resolve("file:///usr/share/x.svg", fakeIconPath, "/h"), "file:///usr/share/x.svg")
+  assert.strictEqual(I.resolve("qrc:/x.png", fakeIconPath, "/h"), "qrc:/x.png")
+})
+
+test("icon sources: names, paths and ~ paths resolve locally", () => {
+  assert.strictEqual(I.resolve("firefox", fakeIconPath, "/h"), "image://icon/firefox")
+  assert.strictEqual(I.resolve("/usr/share/icons/x.png", fakeIconPath, "/h"), "file:///usr/share/icons/x.png")
+  assert.strictEqual(I.resolve("~/icons/x.png", fakeIconPath, "/home/me"), "file:///home/me/icons/x.png")
+  assert.strictEqual(I.resolve("weird name!", fakeIconPath, "/h"), "")
+  assert.strictEqual(I.resolve("", fakeIconPath, "/h"), "")
 })
 
 if (failures) {

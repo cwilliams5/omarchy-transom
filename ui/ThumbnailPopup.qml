@@ -73,9 +73,13 @@ AnchoredPopup {
         id: preview
         width: implicitWidth
         height: implicitHeight
-        // Captures only while shown.
-        toplevel: thumb.open && thumb.anchorTarget ? thumb.anchorTarget.previewToplevel : null
-        iconSources: thumb.anchorTarget && thumb.anchorTarget.previewIcons ? thumb.anchorTarget.previewIcons : []
+        // From the moment the pointer rests on a button: the protection
+        // check and a first frame happen during the hover delay, so the
+        // thumbnail appears ready, at its size. Live only while shown;
+        // nothing is captured once the pointer leaves.
+        readonly property Item source: thumb.open ? thumb.anchorTarget : thumb.pending
+        toplevel: source ? source.previewToplevel : null
+        iconSources: source && source.previewIcons ? source.previewIcons : []
         live: thumb.open
       }
     }

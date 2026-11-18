@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Commons
 import qs.Commons as Commons
+import "../IconSource.js" as IconSource
 
 // One row of a menu: text, or a separator line. Optional check mark, icon and
 // submenu arrow, for the menus apps publish with their tray icons.
@@ -59,7 +60,8 @@ Rectangle {
     height: Style.space(16)
     sourceSize: Qt.size(width * 2, height * 2)
     fillMode: Image.PreserveAspectFit
-    source: row.iconSource
+    // Local images only: a menu's icon can come from an app (IconSource.js).
+    source: IconSource.isLocalUrl(row.iconSource) ? row.iconSource : ""
   }
 
   Text {

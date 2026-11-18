@@ -8,6 +8,7 @@ import qs.Commons as Commons
 import "../Reorder.js" as Reorder
 import "../Settings.js" as Settings
 import "../TrayModel.js" as TrayModel
+import "../IconSource.js" as IconSource
 import "../ui"
 
 // A Windows-style system tray: the icons apps publish while running in the
@@ -485,7 +486,8 @@ Item {
           interactive: modelData.enabled
           checkColumn: tray.checkColumn
           checked: modelData.checkState === Qt.Checked
-          iconSource: String(modelData.icon || "")
+          // The app supplies its menu's icons: local images only (IconSource.js).
+          iconSource: IconSource.resolve(modelData.icon, function(iconName) { return Quickshell.iconPath(iconName, true) }, Quickshell.env("HOME"))
           hasChildren: modelData.hasChildren
           onTriggered: tray.entryClicked(modelData, label)
         }
