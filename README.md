@@ -207,6 +207,19 @@ ordinary ones: they're on the taskbar, dimmed. Entry
 `{ "id": "showdesktop" }`; settings `width` (px, default 10) and `tooltip`.
 It's last in the right section, flush with the corner.
 
+## Start button
+
+Omarchy's own menu button (`omarchy.menu`, the Omarchy logo) makes a
+Windows-style start button: put `{ "id": "omarchy.menu" }` first in the left
+section, or tick "Omarchy menu" on the bar menu's "Omarchy widgets" page (it
+lands on the right; drag it to the left). Take it off the top bar's
+`bar.layout.left` in `shell.json` if it shouldn't be in both places.
+
+- **Left click:** Omarchy's menu (Apps, Learn, Appearance...), the same one
+  as Super+Alt+Space. It opens in the middle of the screen, as Omarchy's menu
+  always does; it has no option to open from a corner.
+- **Right click:** a new terminal (Omarchy's choice for this button).
+
 ## Moving widgets
 
 Drag one of Omarchy's widgets (network, battery, the start button...) along
