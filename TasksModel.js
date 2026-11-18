@@ -22,7 +22,8 @@ var SETTINGS = {
   reorder: { default: true },                                              // drag to reorder
   urgentTint: { default: true },                                           // steady tint for attention
   workspaces: { default: 5, min: 1, max: 10 },                            // in the menu's "Move to"
-  titleSymbols: { default: "keep", choices: ["keep", "strip"] }           // strip: drop emoji and symbols from titles
+  titleSymbols: { default: "keep", choices: ["keep", "strip"] },          // strip: drop emoji and symbols from titles
+  combine: { default: "never", choices: ["never", "full", "always"] }     // one button per app: never, when full, always
 }
 
 // ------------------------------------------------------- which windows
@@ -205,6 +206,55 @@ function claimingEntryId(appId, entries) {
   return ""
 }
 
+// ----------------------------------------------------------- grouping
+
+// Whether the windows' own buttons would be squeezed: below their minimum
+// with a title they'd turn icon-only (or, icon-only already, they wouldn't
+// fit). That's when combine: "full" groups them, like Windows' "combine
+// when the taskbar is full".
+function isCrowded(available, count, spacing, preferred, minWithText, iconWidth, iconOnly) {
+  if (count <= 0) return false
+  if (iconOnly) return rowWidth(count, iconWidth, spacing) > Math.max(0, available)
+  return !buttonLayout(available, count, spacing, preferred, minWithText, iconWidth, false).showText
+}
+
+// The taskbar's buttons for its windows. windows are { address, group } in
+// taskbar order, group being the app (its desktop entry id). Returns
+// [{ key, group, addresses }] in order: one per window, or with combining
+// one per app, placed where the app's first window is. Buttons keep a
+// stable key: the window's address for a lone window, "group:<app>" for an
+// app's button when combining always (so a second window joining it doesn't
+// rebuild it).
+function groupButtons(windows, combine, crowded) {
+  var list = windows || []
+  var single = function(window) { return { key: window.address, group: window.group || window.address, addresses: [window.address] } }
+  if (combine !== "always" && !(combine === "full" && crowded)) return list.map(single)
+  var out = []
+  var byGroup = {}
+  for (var i = 0; i < list.length; i++) {
+    var group = list[i].group || list[i].address
+    if (byGroup[group]) {
+      byGroup[group].addresses.push(list[i].address)
+    } else {
+      byGroup[group] = { key: "group:" + group, group: group, addresses: [list[i].address] }
+      out.push(byGroup[group])
+    }
+  }
+  if (combine === "full") {
+    out = out.map(function(button) { return button.addresses.length === 1 ? single({ address: button.addresses[0], group: button.group }) : button })
+  }
+  return out
+}
+
+// The window order after buttons were dragged into a new order: each
+// button's windows move together. buttons and newButtons are lists of
+// address lists.
+function orderAfterGroupDrag(order, buttons, newButtons, placeWithin) {
+  var shown = [].concat.apply([], buttons)
+  var shownNew = [].concat.apply([], newButtons)
+  return placeWithin(order, shown, shownNew)
+}
+
 // ------------------------------------------------------------- titles
 
 // Symbols apps put in window titles: emoji and pictographs, dingbats (✳),
@@ -234,6 +284,9 @@ if (typeof module !== "undefined") {
   module.exports = {
     SETTINGS: SETTINGS,
     stripSymbols: stripSymbols,
+    isCrowded: isCrowded,
+    groupButtons: groupButtons,
+    orderAfterGroupDrag: orderAfterGroupDrag,
     MINIMIZED_WORKSPACE: MINIMIZED_WORKSPACE,
     toList: toList,
     describe: describe,

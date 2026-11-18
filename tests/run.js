@@ -467,6 +467,50 @@ test("moveEntry: no change gives null", () => {
   assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", "omarchy.power"), null)
 })
 
+// --------------------------------------------------------------- grouping
+
+const wins = [
+  { address: "0x1", group: "google-chrome" },
+  { address: "0x2", group: "foot" },
+  { address: "0x3", group: "google-chrome" },
+  { address: "0x4", group: "code" },
+  { address: "0x5", group: "google-chrome" }
+]
+
+test("groupButtons: never keeps one button per window", () => {
+  assert.deepStrictEqual(M.groupButtons(wins, "never", true).map((b) => b.key), ["0x1", "0x2", "0x3", "0x4", "0x5"])
+})
+
+test("groupButtons: always groups by app, at the app's first window", () => {
+  const buttons = M.groupButtons(wins, "always", false)
+  assert.deepStrictEqual(buttons.map((b) => b.key), ["group:google-chrome", "group:foot", "group:code"])
+  assert.deepStrictEqual(buttons[0].addresses, ["0x1", "0x3", "0x5"])
+  assert.deepStrictEqual(buttons[1].addresses, ["0x2"])
+})
+
+test("groupButtons: full groups only when crowded, lone windows stay windows", () => {
+  assert.deepStrictEqual(M.groupButtons(wins, "full", false).map((b) => b.key), ["0x1", "0x2", "0x3", "0x4", "0x5"])
+  assert.deepStrictEqual(M.groupButtons(wins, "full", true).map((b) => b.key), ["group:google-chrome", "0x2", "0x4"])
+})
+
+test("isCrowded: when titled buttons would turn icon-only, or icons don't fit", () => {
+  assert.strictEqual(M.isCrowded(1000, 5, 4, 180, 90, 36, false), false)
+  assert.strictEqual(M.isCrowded(400, 5, 4, 180, 90, 36, false), true)
+  assert.strictEqual(M.isCrowded(400, 5, 4, 180, 90, 36, true), false)
+  assert.strictEqual(M.isCrowded(150, 5, 4, 180, 90, 36, true), true)
+  assert.strictEqual(M.isCrowded(10, 0, 4, 180, 90, 36, false), false)
+})
+
+test("orderAfterGroupDrag: a group's windows move together", () => {
+  const order = ["0x1", "0x2", "0x3", "0x9", "0x4", "0x5"]
+  const buttons = [["0x1", "0x3", "0x5"], ["0x2"], ["0x4"]]
+  const after = M.orderAfterGroupDrag(order, buttons, [["0x2"], ["0x1", "0x3", "0x5"], ["0x4"]], R.placeWithin)
+  assert.deepStrictEqual(after, ["0x2", "0x1", "0x3", "0x9", "0x5", "0x4"])
+  // Regrouped, the order puts chrome after foot.
+  const regrouped = M.groupButtons(M.applyOrder(["0x1", "0x2", "0x3", "0x4", "0x5"], after).map((a) => wins.find((w) => w.address === a)), "always", false)
+  assert.deepStrictEqual(regrouped.map((b) => b.key), ["group:foot", "group:google-chrome", "group:code"])
+})
+
 // ----------------------------------------------------------------- titles
 
 test("stripSymbols: Claude's spinner frames and emoji go", () => {

@@ -59,6 +59,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Icons: … | Cycles `iconStyle`: color → gray → theme color |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
+| ⤷ Combine: … | Cycles `combine`: never → when full → always |
 | ⤷ Plain titles (no emoji) | Its `titleSymbols` |
 | ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
 | Quick launch ✓ | Show or hide quick launch (the first time, it starts with your browser and terminal) |
@@ -116,6 +117,7 @@ by `Settings.js`.
 | `reorder` | `true` | Drag buttons to reorder |
 | `urgentTint` | `true` | Steady tint on windows asking for attention |
 | `workspaces` | `5` | Workspaces in the menu's "Move to" (1–10) |
+| `combine` | `"never"` | Windows' "combine taskbar buttons": `"never"` (one button per window), `"full"` (one per app once the windows' own buttons would be squeezed to icons), `"always"` (one per app, icons only, as on Windows 11). See "Combined buttons". |
 | `titleSymbols` | `"keep"` | `"strip"` drops emoji and symbols from titles: "✳ Claude Code" shows as "Claude Code". It also stops animated titles (Claude Code's spinner) from moving. Letters, digits, punctuation and arrows stay. |
 
 Example: left-aligned, icon-only, every window on the screen:
@@ -123,6 +125,24 @@ Example: left-aligned, icon-only, every window on the screen:
 ```json
 { "id": "tasks", "align": "left", "labels": "icon", "windows": "monitor" }
 ```
+
+### Combined buttons
+
+With `combine` on, an app's windows share one button: the app's icon with a
+small window count, and its name as the label unless combining "always"
+(icons only). The button sits where the app's first window would be.
+
+| Do | What happens |
+|---|---|
+| Left click | A list of its windows: the active one ticked, minimized ones dimmed. Pick one to bring it forward (or back). |
+| Middle click | A new window of the app |
+| Right click | New window, Pin to quick launch, Close all windows |
+| Drag | Moves the app's windows together |
+
+An app with one window keeps a plain window button (with "always" it's
+icon-only). Apps are told apart by desktop entry: every Chrome window is one
+app, but each web app is its own, as on the taskbar anyway. Coding-agent
+windows group as the agent.
 
 ## Quick launch (`quicklaunch`)
 
@@ -498,7 +518,6 @@ They expect the top bar's internals; an adapter for them is being tried.
 - Public release: the repo is private for now; publishing needs a license
   and a listing on omarchyplugins.com
 
-Decided against: grouping windows by app, thumbnail previews, flashing for
-attention, a per-window audio indicator or volume slider. Omarchy's sound
+Decided against: flashing for attention, a per-window audio indicator or volume slider. Omarchy's sound
 menu already has per-app volume, and Chrome and its web apps share one
 process, so sound can't be tied to one of their windows.

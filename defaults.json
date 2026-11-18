@@ -20,7 +20,9 @@
       "scroll": true,
       "reorder": true,
       "urgentTint": true,
-      "workspaces": 5
+      "workspaces": 5,
+      "titleSymbols": "keep",
+      "combine": "never"
     }
   ],
   "right": [

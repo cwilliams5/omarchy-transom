@@ -15,6 +15,8 @@ Rectangle {
   property bool checked: false
   property string iconSource: ""
   property bool hasChildren: false
+  // Drawn faded but still clickable (a minimized window in a list).
+  property bool dimmed: false
   // Levels of indent, for options that belong to the row above.
   property int indent: 0
   signal triggered()
@@ -27,7 +29,7 @@ Rectangle {
   height: !visible ? 0 : separator ? Style.spacing.sm * 2 + 1 : Style.spacing.popupRowHeight
   radius: Style.cornerRadius
   color: rowMouse.containsMouse && !separator && interactive ? Style.hoverFill : "transparent"
-  opacity: interactive || separator ? 1 : 0.45
+  opacity: !interactive && !separator ? 0.45 : dimmed ? 0.55 : 1
 
   Rectangle {
     visible: row.separator

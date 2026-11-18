@@ -346,9 +346,10 @@ Item {
         delegate: MenuItemRow {
           required property var modelData
           text: String(modelData.name || modelData.id || "")
+          // Act first: closing the menu destroys this row.
           onTriggered: {
-            var action = modelData
-            launcher.choose(function() { launcher.runAction(action) })
+            launcher.runAction(modelData)
+            launcher.closeMenu()
           }
         }
       }

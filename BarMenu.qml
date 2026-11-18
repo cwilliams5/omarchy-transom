@@ -45,6 +45,8 @@ AnchoredPopup {
   readonly property string iconStyle: bar ? bar.iconStyle : "color"
   readonly property var iconStyles: ["color", "mono", "themed"]
   readonly property var iconStyleNames: ({ "color": "color", "mono": "gray", "themed": "theme color" })
+  readonly property var combineModes: ["never", "full", "always"]
+  readonly property var combineNames: ({ "never": "never", "full": "when full", "always": "always" })
   readonly property var windowModes: ["workspace", "monitor", "all"]
   readonly property var windowModeNames: ({ "workspace": "this workspace", "monitor": "this screen", "all": "all" })
 
@@ -116,6 +118,19 @@ AnchoredPopup {
       checkColumn: true
       checked: menu.taskbar.labels === "icon"
       onTriggered: menu.change("tasks", { labels: checked ? "title" : "icon" })
+    }
+
+    // Windows' "Combine taskbar buttons": one per app. Steps through.
+    MenuItemRow {
+      visible: menu.page === "main" && menu.taskbarOn
+      indent: 1
+      text: "Combine: " + menu.combineNames[menu.taskbar.combine]
+      checkColumn: true
+      hasChildren: true
+      onTriggered: {
+        var modes = menu.combineModes
+        menu.change("tasks", { combine: modes[(modes.indexOf(menu.taskbar.combine) + 1) % modes.length] })
+      }
     }
 
     MenuItemRow {

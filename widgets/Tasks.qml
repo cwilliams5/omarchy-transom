@@ -7,6 +7,7 @@ import qs.Ui
 import "../Reorder.js" as Reorder
 import "../Settings.js" as Settings
 import "../TasksModel.js" as TasksModel
+import "../QuickLaunchModel.js" as QuickLaunchModel
 import "../ui"
 
 // A Windows-style taskbar: one button per window on this screen's workspace,
@@ -102,24 +103,65 @@ Item {
     return map
   }
 
-  // The buttons follow this model, keyed by window address, so a button
-  // survives title and focus changes instead of being rebuilt under the
-  // pointer (the same approach as Omarchy's dock).
+  // ---------------------------------------------------------- combining
+
+  // Windows' "combine taskbar buttons" (the combine setting): one button
+  // per app, always, or only once the windows' own buttons would be
+  // squeezed ("full"). Labels are hidden when always combining, as on
+  // Windows 11.
+  readonly property bool iconsOnly: cfg.labels === "icon" || cfg.combine === "always"
+  readonly property bool crowded: cfg.combine === "full"
+    && TasksModel.isCrowded(width, shown.length, spacing, preferredWidth, minTextWidth, iconOnlyWidth, cfg.labels === "icon")
+
+  // A window's app, for combining: its desktop entry id, else its app id.
+  function groupOf(entry) {
+    var appId = taskbar.appIdOf(entry.toplevel)
+    if (appId === taskbar.agentAppId) return appId
+    var desktop = taskbar.entryFor(appId)
+    return desktop ? String(desktop.id) : appId
+  }
+
+  // The buttons, in order: { key, group, addresses } (TasksModel.groupButtons).
+  readonly property var groupedButtons: {
+    var combining = taskbar.cfg.combine === "always" || taskbar.crowded
+    return TasksModel.groupButtons(taskbar.shown.map(function(entry) {
+      return { address: entry.address, group: combining ? taskbar.groupOf(entry) : "" }
+    }), taskbar.cfg.combine, taskbar.crowded)
+  }
+
+  readonly property var buttonByKey: {
+    var map = {}
+    for (var i = 0; i < groupedButtons.length; i++) map[groupedButtons[i].key] = groupedButtons[i]
+    return map
+  }
+
+  // An app's name for its combined button: its desktop entry's name, or the
+  // agent's.
+  function groupName(group, appId) {
+    if (appId === taskbar.agentAppId) return QuickLaunchModel.agentName(taskbar.bar ? taskbar.bar.agentId : "")
+    var desktop = taskbar.entryFor(appId)
+    return desktop && desktop.name ? String(desktop.name) : String(group || appId)
+  }
+
+  // The buttons follow this model, keyed by button key (a window's address,
+  // or an app when combined), so a button survives title and focus changes
+  // instead of being rebuilt under the pointer (the same approach as
+  // Omarchy's dock).
   ListModel { id: buttons }
 
-  onShownChanged: syncButtons()
+  onGroupedButtonsChanged: syncButtons()
   Component.onCompleted: syncButtons()
 
   function syncButtons() {
-    var keys = taskbar.shown.map(function(entry) { return entry.address })
+    var keys = taskbar.groupedButtons.map(function(button) { return button.key })
     for (var i = 0; i < keys.length; i++) {
-      if (i < buttons.count && buttons.get(i).address === keys[i]) continue
+      if (i < buttons.count && buttons.get(i).key === keys[i]) continue
       var found = -1
       for (var j = i + 1; j < buttons.count; j++) {
-        if (buttons.get(j).address === keys[i]) { found = j; break }
+        if (buttons.get(j).key === keys[i]) { found = j; break }
       }
       if (found >= 0) buttons.move(found, i, 1)
-      else buttons.insert(i, { address: keys[i] })
+      else buttons.insert(i, { key: keys[i] })
     }
     if (buttons.count > keys.length) buttons.remove(keys.length, buttons.count - keys.length)
   }
@@ -215,6 +257,20 @@ Item {
     else if (taskbar.bar) taskbar.bar.launchEntry(taskbar.entryFor(taskbar.appIdOf(entry.toplevel)))
   }
 
+  // A combined button with more than one window: left click lists them,
+  // middle click opens another, right click is the app's menu.
+  function clickedGroup(group, mouseButton, slot) {
+    taskbar.hideTooltip()
+    if (mouseButton === Qt.MiddleButton) {
+      taskbar.closeMenu()
+      taskbar.newWindow(taskbar.byAddress[group.addresses[0]])
+    } else if (mouseButton === Qt.RightButton) {
+      taskbar.openGroupMenu(group.key, slot)
+    } else {
+      taskbar.openList(group.key, slot)
+    }
+  }
+
   function clicked(entry, button, slot) {
     if (!entry) return
     taskbar.hideTooltip()
@@ -275,11 +331,13 @@ Item {
   property int dragFrom: -1
   property int dragDrop: -1
 
+  // A combined button's windows move together.
   function commitReorder(from, to) {
     if (!taskbar.bar || from < 0 || to < 0 || from === to) return
-    var keys = taskbar.shown.map(function(entry) { return entry.address })
+    var groups = taskbar.groupedButtons.map(function(button) { return button.addresses })
     var existing = Hyprland.toplevels.values.map(function(toplevel) { return TasksModel.normalizeAddress(toplevel.address) })
-    taskbar.bar.windowOrder = Reorder.placeWithin(TasksModel.pruneOrder(taskbar.bar.windowOrder, existing), keys, Reorder.moved(keys, from, to))
+    taskbar.bar.windowOrder = TasksModel.orderAfterGroupDrag(TasksModel.pruneOrder(taskbar.bar.windowOrder, existing),
+      groups, Reorder.moved(groups, from, to), Reorder.placeWithin)
   }
 
   // -------------------------------------------------------------- layout
@@ -290,7 +348,7 @@ Item {
   readonly property real iconOnlyWidth: Style.space(36)
   readonly property int iconSize: Style.bar.iconCanvas
 
-  readonly property var geometry: TasksModel.buttonLayout(width, buttons.count, spacing, preferredWidth, minTextWidth, iconOnlyWidth, cfg.labels === "icon")
+  readonly property var geometry: TasksModel.buttonLayout(width, buttons.count, spacing, preferredWidth, minTextWidth, iconOnlyWidth, iconsOnly)
   readonly property real slotSize: geometry.width + spacing
   readonly property real rowWidth: TasksModel.rowWidth(buttons.count, geometry.width, spacing)
   readonly property real rowX: TasksModel.rowX(rowWidth, width, screenCenterX, cfg.align)
@@ -303,23 +361,28 @@ Item {
     delegate: Item {
       id: button
 
-      required property string address
+      required property string key
       required property int index
 
-      readonly property var entry: taskbar.byAddress[address] || null
+      // Its windows: one, or an app's several when combined.
+      readonly property var group: taskbar.buttonByKey[key] || null
+      readonly property var entries: group ? group.addresses.map(function(address) { return taskbar.byAddress[address] }).filter(function(entry) { return !!entry }) : []
+      readonly property bool grouped: entries.length > 1
+      readonly property var entry: entries.length > 0 ? entries[0] : null
       readonly property var toplevel: entry ? entry.toplevel : null
-      readonly property bool minimized: !!entry && entry.minimized
-      readonly property bool active: !!toplevel && toplevel.activated && !minimized
-      readonly property bool urgent: taskbar.cfg.urgentTint && !!toplevel && toplevel.urgent
+      readonly property bool minimized: entries.length > 0 && entries.every(function(one) { return one.minimized })
+      readonly property bool active: entries.some(function(one) { return one.toplevel.activated && !one.minimized })
+      readonly property bool urgent: taskbar.cfg.urgentTint && entries.some(function(one) { return one.toplevel.urgent })
       readonly property string appId: taskbar.appIdOf(toplevel)
-      readonly property string rawTitle: toplevel && toplevel.title ? toplevel.title : appId
+      readonly property string rawTitle: grouped ? taskbar.groupName(group.group, appId)
+        : toplevel && toplevel.title ? toplevel.title : appId
       // Without emoji and symbols, if titleSymbols says so (this also stops
       // an animated title, like Claude Code's spinner, from moving).
       readonly property string title: taskbar.cfg.titleSymbols === "strip" ? TasksModel.stripSymbols(rawTitle) : rawTitle
       // The title isn't fully visible, so hovering shows it in a tooltip.
       readonly property bool cutOff: !taskbar.geometry.showText || titleText.truncated
       // What the tooltip shows (TooltipPopup reads it).
-      readonly property string tipText: title
+      readonly property string tipText: grouped ? title + " (" + entries.length + " windows)" : title
 
       // Dragging: this button follows the pointer; the ones it passes step
       // aside by one slot.
@@ -379,6 +442,31 @@ Item {
           iconStyle: taskbar.bar ? taskbar.bar.iconStyleFor([button.appId, button.rawTitle]) : "color"
         }
 
+        // How many windows a combined button holds: a small number on the
+        // icon's corner.
+        Rectangle {
+          visible: button.grouped
+          anchors.horizontalCenter: icon.right
+          anchors.verticalCenter: icon.bottom
+          anchors.horizontalCenterOffset: -Style.space(1)
+          anchors.verticalCenterOffset: -Style.space(2)
+          width: Math.max(height, countText.implicitWidth + Style.space(4))
+          height: Style.space(11)
+          radius: height / 2
+          color: taskbar.bar ? taskbar.bar.foreground : Commons.Color.foreground
+
+          Text {
+            id: countText
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: String(button.entries.length)
+            color: Commons.Color.bar.background
+            font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+            font.pixelSize: Style.space(8)
+            font.bold: true
+          }
+        }
+
         Text {
           id: titleText
           visible: taskbar.geometry.showText
@@ -434,7 +522,8 @@ Item {
             button.suppressClick = false
             return
           }
-          taskbar.clicked(button.entry, event.button, button)
+          if (button.grouped) taskbar.clickedGroup(button.group, event.button, button)
+          else taskbar.clicked(button.entry, event.button, button)
         }
       }
 
@@ -465,7 +554,7 @@ Item {
   }
 
   function hovered(slot, inside) {
-    if (inside && !(taskbar.cfg.tooltip && slot.cutOff && taskbar.dragFrom < 0 && !menuPopup.visible)) return
+    if (inside && !(taskbar.cfg.tooltip && slot.cutOff && taskbar.dragFrom < 0 && !taskbar.popupVisible)) return
     tooltip.hovered(slot, inside)
   }
 
@@ -478,8 +567,8 @@ Item {
     taskbar.closeMenu()
   }
 
-  // Whether its menu is open (the bar stays up while it is).
-  readonly property bool popupVisible: menuPopup.open
+  // Whether one of its popups is open (the bar stays up while one is).
+  readonly property bool popupVisible: menuPopup.open || listPopup.open || groupMenuPopup.open
 
   // ---------------------------------------------------------------- menu
 
@@ -508,6 +597,8 @@ Item {
 
   function closeMenu() {
     taskbar.menuAddress = ""
+    taskbar.listKey = ""
+    taskbar.groupMenuKey = ""
   }
 
   // The window went away, or the screen changed workspace.
@@ -637,6 +728,145 @@ Item {
       MenuItemRow {
         text: "Close"
         onTriggered: taskbar.choose(text, taskbar.closeWindow)
+      }
+    }
+  }
+
+  // ------------------------------------------- combined buttons: list, menu
+
+  // Clicking a combined button lists its windows, like Windows' thumbnail
+  // strip: the active one ticked, minimized ones dimmed. Picking one brings
+  // it forward (or back, if minimized).
+  property string listKey: ""
+  readonly property var listGroup: listKey ? (buttonByKey[listKey] || null) : null
+  readonly property var listEntries: listGroup
+    ? listGroup.addresses.map(function(address) { return taskbar.byAddress[address] }).filter(function(entry) { return !!entry }) : []
+
+  function openList(key, slot) {
+    if (taskbar.bar) taskbar.bar.claimPopup(taskbar)
+    taskbar.menuAddress = ""
+    taskbar.groupMenuKey = ""
+    listPopup.target = slot
+    taskbar.listKey = key
+  }
+
+  // The group went away (its windows closed or were split apart).
+  onListGroupChanged: if (listKey !== "" && !listGroup) closeMenu()
+
+  function windowTitle(entry) {
+    var raw = entry && entry.toplevel && entry.toplevel.title ? String(entry.toplevel.title) : ""
+    return taskbar.cfg.titleSymbols === "strip" ? TasksModel.stripSymbols(raw) : raw
+  }
+
+  // An icon URL for menu rows, which take one image.
+  function iconUrl(appId) {
+    var names = taskbar.iconsFor(appId)
+    for (var i = 0; i < names.length; i++) {
+      var name = String(names[i])
+      if (name.indexOf("://") > 0) return name
+      if (name.charAt(0) === "/") return "file://" + name
+      var path = Quickshell.iconPath(name, true)
+      if (path) return path
+    }
+    return ""
+  }
+
+  AnchoredPopup {
+    id: listPopup
+    open: taskbar.listEntries.length > 0
+    onOutsideClicked: taskbar.closeMenu()
+    onVisibleChanged: if (visible) taskbar.hideTooltip()
+
+    MenuCard {
+      contentWidth: Style.space(260)
+
+      Repeater {
+        model: taskbar.listEntries
+        delegate: MenuItemRow {
+          required property var modelData
+          checkColumn: true
+          checked: modelData.toplevel.activated && !modelData.minimized
+          dimmed: modelData.minimized
+          iconSource: taskbar.iconUrl(taskbar.appIdOf(modelData.toplevel))
+          text: taskbar.windowTitle(modelData) || taskbar.appIdOf(modelData.toplevel)
+          // Act first: closing the list destroys this row.
+          onTriggered: {
+            var entry = modelData
+            if (entry.minimized) taskbar.restoreWindow(entry)
+            else taskbar.focusWindow(entry)
+            taskbar.closeMenu()
+          }
+        }
+      }
+    }
+  }
+
+  // Right-clicking a combined button: the app's menu.
+  property string groupMenuKey: ""
+  readonly property var groupMenuGroup: groupMenuKey ? (buttonByKey[groupMenuKey] || null) : null
+  readonly property var groupMenuEntry: groupMenuGroup ? (byAddress[groupMenuGroup.addresses[0]] || null) : null
+  readonly property bool groupMenuIsAgent: !!groupMenuEntry && appIdOf(groupMenuEntry.toplevel) === agentAppId
+  readonly property var groupMenuDesktopEntry: groupMenuEntry && !groupMenuIsAgent ? entryFor(appIdOf(groupMenuEntry.toplevel)) : null
+  readonly property string groupMenuPinId: groupMenuIsAgent ? "agent" : groupMenuDesktopEntry ? String(groupMenuDesktopEntry.id) : ""
+  readonly property bool groupMenuPinned: groupMenuPinId !== "" && !!bar && bar.isPinnedToQuickLaunch(groupMenuPinId)
+
+  function openGroupMenu(key, slot) {
+    if (taskbar.bar) taskbar.bar.claimPopup(taskbar)
+    taskbar.menuAddress = ""
+    taskbar.listKey = ""
+    groupMenuPopup.target = slot
+    taskbar.groupMenuKey = key
+  }
+
+  onGroupMenuGroupChanged: if (groupMenuKey !== "" && !groupMenuGroup) closeMenu()
+
+  AnchoredPopup {
+    id: groupMenuPopup
+    open: !!taskbar.groupMenuGroup
+    onOutsideClicked: taskbar.closeMenu()
+    onVisibleChanged: if (visible) taskbar.hideTooltip()
+
+    MenuCard {
+      contentWidth: Style.space(210)
+
+      MenuItemRow {
+        visible: taskbar.groupMenuPinId !== ""
+        text: "New window"
+        onTriggered: {
+          var entry = taskbar.groupMenuEntry
+          taskbar.closeMenu()
+          if (entry) taskbar.newWindow(entry)
+        }
+      }
+
+      MenuItemRow {
+        visible: taskbar.groupMenuPinId !== ""
+        text: taskbar.groupMenuPinned ? "Unpin from quick launch" : "Pin to quick launch"
+        onTriggered: {
+          var id = taskbar.groupMenuPinId
+          var pinned = taskbar.groupMenuPinned
+          taskbar.closeMenu()
+          if (pinned) taskbar.bar.unpinFromQuickLaunch(id)
+          else taskbar.bar.pinToQuickLaunch(id)
+        }
+      }
+
+      MenuItemRow {
+        separator: true
+        visible: taskbar.groupMenuPinId !== ""
+      }
+
+      MenuItemRow {
+        text: "Close all windows"
+        onTriggered: {
+          var addresses = taskbar.groupMenuGroup ? taskbar.groupMenuGroup.addresses.slice() : []
+          taskbar.closeMenu()
+          console.log("transom: close all " + addresses.join(" "))
+          for (var i = 0; i < addresses.length; i++) {
+            var entry = taskbar.byAddress[addresses[i]]
+            if (entry) taskbar.closeWindow(entry)
+          }
+        }
       }
     }
   }
