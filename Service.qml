@@ -9,6 +9,7 @@ import "Settings.js" as Settings
 import "TasksModel.js" as TasksModel
 import "TrayModel.js" as TrayModel
 import "Reorder.js" as Reorder
+import "QuickLaunchModel.js" as QuickLaunchModel
 
 // Transom: a Windows-style taskbar along the bottom edge of every screen. It
 // takes its look from Omarchy's top bar (theme colors, font, height, and the
@@ -61,6 +62,7 @@ Item {
   // Widget ids the layout can use, and the file each one loads.
   readonly property var widgets: ({
     "tasks": "widgets/Tasks.qml",
+    "quicklaunch": "widgets/QuickLaunch.qml",
     "tray": "widgets/Tray.qml",
     "showdesktop": "widgets/ShowDesktop.qml"
   })
@@ -123,7 +125,7 @@ Item {
   readonly property string configPath: Quickshell.env("HOME") + "/.config/omarchy/transom.json"
   readonly property var sections: ["left", "center", "right"]
   // Where a widget goes when it's switched on but isn't in the file at all.
-  readonly property var homeSection: ({ "tasks": "center", "tray": "right", "showdesktop": "right" })
+  readonly property var homeSection: ({ "tasks": "center", "quicklaunch": "left", "tray": "right", "showdesktop": "right" })
 
   property var defaultLayout: ({ left: [], center: [{ id: "tasks" }], right: [{ id: "tray" }] })
   // Every entry, switched on or not. shownLayout is what the bar draws.
@@ -287,6 +289,27 @@ Item {
 
   function setWidgetEnabled(id, on) {
     root.updateWidget(id, { enabled: on ? undefined : false })
+  }
+
+  // Quick launch, from the taskbar buttons' menu: is the app with this
+  // desktop entry id on it, add it (adding quick launch to the bar if it
+  // isn't there), take it off.
+  function quickLaunchApps() {
+    var entry = root.entryFor("quicklaunch")
+    return entry ? (Settings.toList(entry.apps) || []) : []
+  }
+
+  function isPinnedToQuickLaunch(id) {
+    var entry = root.entryFor("quicklaunch")
+    return !!entry && entry.enabled !== false && QuickLaunchModel.isPinned(entry.apps, id)
+  }
+
+  function pinToQuickLaunch(id) {
+    root.updateWidget("quicklaunch", { apps: QuickLaunchModel.appsAfterPin(root.quickLaunchApps(), id), enabled: undefined })
+  }
+
+  function unpinFromQuickLaunch(id) {
+    root.updateWidget("quicklaunch", { apps: QuickLaunchModel.appsAfterUnpin(root.quickLaunchApps(), id) })
   }
 
   // Opens the user's settings file in the editor, creating it first.

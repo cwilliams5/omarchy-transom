@@ -34,6 +34,7 @@ AnchoredPopup {
 
   readonly property bool taskbarOn: !!bar && bar.widgetEnabled("tasks")
   readonly property bool trayOn: !!bar && bar.widgetEnabled("tray")
+  readonly property bool quickLaunchOn: !!bar && bar.widgetEnabled("quicklaunch")
   readonly property bool showDesktopOn: !!bar && bar.widgetEnabled("showdesktop")
   readonly property var taskbar: Settings.parse(bar ? bar.entryFor("tasks") : null, TasksModel.SETTINGS).settings
   readonly property var tray: Settings.parse(bar ? bar.entryFor("tray") : null, TrayModel.SETTINGS).settings
@@ -100,6 +101,24 @@ AnchoredPopup {
       onTriggered: {
         var modes = menu.windowModes
         menu.change("tasks", { windows: modes[(modes.indexOf(menu.taskbar.windows) + 1) % modes.length] })
+      }
+    }
+
+    // Turned on for the first time, it starts with the browser and terminal.
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Quick launch"
+      checkColumn: true
+      checked: menu.quickLaunchOn
+      onTriggered: {
+        if (menu.quickLaunchOn) {
+          menu.bar.setWidgetEnabled("quicklaunch", false)
+          return
+        }
+        var entry = menu.bar.entryFor("quicklaunch")
+        var changes = { enabled: undefined }
+        if (!entry || !entry.apps) changes.apps = ["browser", "terminal"]
+        menu.change("quicklaunch", changes)
       }
     }
 

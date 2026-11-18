@@ -53,6 +53,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
 | ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
+| Quick launch ✓ | Show or hide quick launch (the first time, it starts with your browser and terminal) |
 | System tray ✓ | Show or hide the tray |
 | ⤷ Overflow "^" | Its `overflow` |
 | ⤷ Windows-style left click | Its `replaceLeftClick` |
@@ -113,6 +114,49 @@ Example: left-aligned, icon-only, every window on the screen:
 ```json
 { "id": "tasks", "align": "left", "labels": "icon", "windows": "monitor" }
 ```
+
+## Quick launch (`quicklaunch`)
+
+App buttons, Windows-style, by default left of the taskbar buttons. A click
+always opens a **new window** of the app on the current workspace: the app's
+own "New window" action when its desktop entry has one (Chrome, Firefox, VS
+Code...), otherwise the app is started again. Apps that only ever have one
+window (Spotify, Steam, Notion) just come forward.
+
+| Do | What happens |
+|---|---|
+| Left or middle click | A new window |
+| Right click | A menu: the app (a new window), the app's own actions (e.g. Chrome's "New Incognito Window"), Remove from quick launch |
+| Drag | Reorder (`reorder`, off while the taskbar is locked) |
+| Hover | The app's name |
+
+**Pin to quick launch:** right-click any window's taskbar button. It adds the
+app (and puts quick launch on the bar if it isn't there); "Unpin from quick
+launch" takes it off.
+
+### Quick launch settings
+
+| Setting | Default | What |
+|---|---|---|
+| `apps` | `[]` | The buttons, in order (below) |
+| `iconSize` | `16` | Icon size in px (8-32). Cody's bar uses 14, like the tray. |
+| `tooltip` | `true` | The app's name on hover |
+| `tooltipDelay` | `600` | ms before it shows |
+| `reorder` | `true` | Drag to reorder |
+
+Each element of `apps` is one of:
+
+- **An app:** its desktop entry id, e.g. `"google-chrome"`,
+  `"org.gnome.Nautilus"`, `"code"` (case and `.desktop` don't matter much;
+  a close name like `"chrome"` is looked up too).
+- **Omarchy's launchers:** `"terminal"` (your default terminal, as
+  Super+Enter, in your home folder), `"browser"` (your default browser),
+  `"agent"` (your default coding agent, as `omarchy agent`, with its logo).
+- **An app with arguments:** `{ "app": "google-chrome", "args": ["--incognito"], "name": "Incognito" }`.
+- **Any command:** `{ "command": "omarchy-launch-tui btop", "name": "Activity", "icon": "utilities-system-monitor" }`.
+  `icon` is a theme icon name or a path.
+
+For example: `{ "id": "quicklaunch", "apps": ["google-chrome", "terminal", "agent"] }`.
 
 ## System tray
 
@@ -276,6 +320,8 @@ top bar runs, with its real panel, which opens upward.
 | `BarMenu.qml` | The bar's right-click menu. |
 | `defaults.json` | The layout and settings used until `~/.config/omarchy/transom.json` exists. |
 | `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |
+| `widgets/QuickLaunch.qml`, `QuickLaunchModel.js` | Quick launch: buttons, launching, its menu; the model parses `apps` and does pinning. |
+| `ui/AppIcon.qml` | An app icon that falls back through candidate images. |
 | `widgets/Tray.qml` | The system tray: icons, "^" flyout, app menus, pin/hide, drag. |
 | `widgets/OmarchyWidget.qml`, `ui/OmarchyBarApi.qml` | Hosting Omarchy's own widgets (see above). |
 | `widgets/ShowDesktop.qml` | The show-desktop button. |

@@ -5,7 +5,9 @@
 //
 // The default's type says what's accepted. A string with choices takes one
 // of them; a boolean takes true or false; a number takes any number, rounded
-// and clamped to min..max; a list ([]) takes a list of non-empty strings.
+// and clamped to min..max; a list ([]) takes a list of non-empty strings,
+// or, with item: function(value, index), whatever that function makes of
+// each element (null skips it).
 // Anything else is ignored and reported, so a typo never breaks the bar.
 
 // A list from QML as a plain array. A list that came through a QML property
@@ -51,6 +53,13 @@ function parse(entry, spec) {
       var list = toList(value)
       if (list === null) {
         problems.push(key + " must be a list like [\"name\"] (got " + shown + ")")
+      } else if (rule.item) {
+        settings[key] = []
+        for (var n = 0; n < list.length; n++) {
+          var made = rule.item(list[n], n)
+          if (made) settings[key].push(made)
+          else problems.push(key + " skipped " + JSON.stringify(list[n]))
+        }
       } else {
         settings[key] = list.filter(function(item) { return typeof item === "string" && item.trim() !== "" })
           .map(function(item) { return item.trim() })

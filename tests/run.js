@@ -5,6 +5,7 @@ const M = require(path.join(__dirname, "..", "TasksModel.js"))
 const S = require(path.join(__dirname, "..", "Settings.js"))
 const T = require(path.join(__dirname, "..", "TrayModel.js"))
 const R = require(path.join(__dirname, "..", "Reorder.js"))
+const Q = require(path.join(__dirname, "..", "QuickLaunchModel.js"))
 
 let failures = 0
 function test(name, fn) {
@@ -464,6 +465,55 @@ test("moveEntry: no change gives null", () => {
   assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", ""), null)
   assert.strictEqual(R.moveEntry(layout, "nothing", "right", ""), null)
   assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", "omarchy.power"), null)
+})
+
+// ------------------------------------------------------------ quick launch
+
+test("quick launch: apps can be names, specials, apps with args, commands", () => {
+  const { settings, problems } = S.parse({ id: "quicklaunch", apps: [
+    "google-chrome", "Terminal", { app: "google-chrome", args: ["--incognito"], name: "Incognito" },
+    { command: "btop", name: "Activity", icon: "utilities-system-monitor" }, { name: "nothing" }, 7, " "
+  ] }, Q.SETTINGS)
+  assert.deepStrictEqual(settings.apps.map((a) => [a.at, a.app, a.special, a.command]), [
+    [0, "google-chrome", "", ""], [1, "Terminal", "terminal", ""], [2, "google-chrome", "", ""], [3, "", "", "btop"]
+  ])
+  assert.deepStrictEqual(settings.apps[2].args, ["--incognito"])
+  assert.strictEqual(settings.apps[3].icon, "utilities-system-monitor")
+  assert.strictEqual(problems.length, 3, "the three bad elements are reported")
+})
+
+test("quick launch: a command is never a special", () => {
+  assert.strictEqual(Q.normalizeItem({ app: "terminal", command: "foot" }, 0).special, "")
+  assert.strictEqual(Q.normalizeItem("agent", 0).special, "agent")
+})
+
+test("quick launch: pinning matches ids loosely and doesn't duplicate", () => {
+  const apps = ["Google-Chrome.desktop", { app: "code", args: ["--new-window"] }, { command: "code" }]
+  assert.ok(Q.isPinned(apps, "google-chrome"))
+  assert.ok(Q.isPinned(apps, "code.desktop"))
+  assert.ok(!Q.isPinned(apps, "foot"))
+  assert.deepStrictEqual(Q.appsAfterPin(apps, "google-chrome"), apps)
+  assert.deepStrictEqual(Q.appsAfterPin(apps, "org.gnome.Nautilus.desktop").slice(-1), ["org.gnome.Nautilus"])
+  assert.deepStrictEqual(Q.appsAfterUnpin(apps, "code"), ["Google-Chrome.desktop", { command: "code" }])
+})
+
+test("quick launch: remove and reorder keep skipped elements in place", () => {
+  const apps = ["a", 7, "b", "c"]
+  assert.deepStrictEqual(Q.appsAfterRemove(apps, 2), ["a", 7, "c"])
+  assert.deepStrictEqual(Q.appsAfterRemove(apps, 9), apps)
+  // Shown: a(0) b(2) c(3); dragged into c, a, b.
+  assert.deepStrictEqual(Q.appsAfterReorder(apps, [0, 2, 3], [3, 0, 2]), ["c", 7, "a", "b"])
+})
+
+test("quick launch: commands drop field codes and take extra args", () => {
+  assert.deepStrictEqual(Q.commandWith(["/usr/bin/chrome", "%U"], ["--incognito"]), ["/usr/bin/chrome", "--incognito"])
+  assert.deepStrictEqual(Q.commandWith(null, []), [])
+})
+
+test("quick launch: agent names", () => {
+  assert.strictEqual(Q.agentName("claude"), "Claude Code")
+  assert.strictEqual(Q.agentName("pi"), "Pi")
+  assert.strictEqual(Q.agentName(""), "Agent")
 })
 
 if (failures) {

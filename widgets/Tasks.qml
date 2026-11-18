@@ -16,7 +16,7 @@ import "../ui"
 //   left click    focus a window, or bring a minimized one back
 //                 (clicking the active window does nothing, by default)
 //   middle click  close it
-//   right click   menu: new window, minimize/restore, move to workspace,
+//   right click   menu: new window, pin to quick launch, minimize/restore, move to workspace,
 //                 float/tile, close
 //   scroll        step through the windows
 //   drag          reorder
@@ -481,7 +481,9 @@ Item {
   readonly property var menuEntry: menuAddress ? (byAddress[menuAddress] || null) : null
   readonly property bool menuMinimized: !!menuEntry && menuEntry.minimized
   readonly property bool menuFloating: !!menuEntry && !!(menuEntry.toplevel.lastIpcObject || {}).floating
-  readonly property bool menuCanLaunch: !!menuEntry && !!entryFor(appIdOf(menuEntry.toplevel))
+  readonly property var menuDesktopEntry: menuEntry ? entryFor(appIdOf(menuEntry.toplevel)) : null
+  readonly property bool menuCanLaunch: !!menuDesktopEntry
+  readonly property bool menuPinned: !!menuDesktopEntry && !!bar && bar.isPinnedToQuickLaunch(menuDesktopEntry.id)
   readonly property int menuWorkspaceId: {
     if (!menuEntry || menuMinimized) return -1
     var workspace = menuEntry.toplevel.workspace
@@ -530,6 +532,20 @@ Item {
         visible: taskbar.menuCanLaunch
         text: "New window"
         onTriggered: taskbar.choose(text, taskbar.newWindow)
+      }
+
+      // Windows' "Pin to taskbar", for the quick launch buttons.
+      MenuItemRow {
+        visible: taskbar.menuCanLaunch
+        text: taskbar.menuPinned ? "Unpin from quick launch" : "Pin to quick launch"
+        onTriggered: {
+          var id = taskbar.menuDesktopEntry.id
+          var pinned = taskbar.menuPinned
+          taskbar.choose(text, function() {
+            if (pinned) taskbar.bar.unpinFromQuickLaunch(id)
+            else taskbar.bar.pinToQuickLaunch(id)
+          })
+        }
       }
 
       MenuItemRow {
