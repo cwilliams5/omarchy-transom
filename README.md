@@ -1,4 +1,9 @@
-# Transom
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/crossbar/lockup-dark.svg">
+    <img alt="Transom" src="branding/crossbar/lockup-light.svg" width="360">
+  </picture>
+</h1>
 
 **A Windows-style taskbar for [Omarchy](https://omarchy.org):** start button,
 quick launch, this workspace's windows, tray, show desktop.
@@ -544,7 +549,7 @@ top bar runs, with its real panel, which opens upward.
 | `minimize` | Minimizes a window (the active one, or an address). Omarchy's minimize minus its floating-only check. |
 | `dev/` | Test tools: `vclick.py` (click and drag from a script) and `clicklog.py` (a terminal that counts clicks). |
 | `media/` | The README's screenshots. |
-| `branding/` | Logo and wordmark options (`BRANDING.md`), and `build.py` to regenerate them. |
+| `branding/` | The logo (`crossbar/`), the options not picked (`alternatives/`), `BRANDING.md`, and `build.py` to regenerate them all. `icon.svg` at the root is the app icon. |
 
 ## Adding a widget
 
@@ -662,10 +667,14 @@ They expect the top bar's internals; an adapter for them is being tried.
 
 - Very long tray menus don't scroll yet
 - Translations (menus and tooltips are English only)
-- Public release: the repo is private for now; publishing needs a license
-  and a listing on omarchyplugins.com
+- Public release: the repo is private for now; next come going public and
+  a listing on omarchyplugins.com
 
 Decided against: flashing for attention, and a per-window audio indicator
 or volume slider. Omarchy's sound menu already has per-app volume, and
 Chrome and its web apps share one process, so sound can't be tied to one of
 their windows.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

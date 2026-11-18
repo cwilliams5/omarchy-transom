@@ -90,7 +90,8 @@ ICONS = {
 
 OPTIONS = [
     {
-        "slug": "option-1-crossbar",
+        "slug": "crossbar",
+        "picked": True,
         "name": "Crossbar",
         "icon": "crossbar",
         "letters": [t, r, a, n, s, o, m],
@@ -100,7 +101,7 @@ OPTIONS = [
                     ("Amber", "#EBCB8B", "highlight"), ("Snow", "#ECEFF4", "text")],
     },
     {
-        "slug": "option-2-fanlight",
+        "slug": "alternatives/fanlight",
         "name": "Fanlight",
         "icon": "fanlight",
         "letters": [T, R, A, N, S, O, M],
@@ -111,7 +112,7 @@ OPTIONS = [
                     ("Brick", "#A0503C", "highlight"), ("Limestone", "#EAE4D6", "text")],
     },
     {
-        "slug": "option-3-tbar",
+        "slug": "alternatives/tbar",
         "name": "T-bar",
         "icon": "tbar",
         "letters": [t, r, a, n, s, o_window, m],
@@ -215,21 +216,48 @@ def sheet_svg(option):
     return "\n".join(out)
 
 
+def lockup_svg(option, text, accent):
+    """The icon and the wordmark side by side, for the README's header."""
+    body = resolve_accent(ICONS[option["icon"]], accent)
+    d, ww, wh, stroke, under = wordmark(option)
+    scale = 64 / 86  # the wordmark's height (with its bar) matched to the icon's
+    width = 64 + 18 + ww * scale
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.0f} 64" width="{width * 3:.0f}" height="192">'
+            f'<g style="color:{text}">{body}</g>'
+            f'<g transform="translate(82 2) scale({scale:.4f})">'
+            f'<path d="{d}" fill="none" stroke="{text}" stroke-width="{stroke}" stroke-linecap="round" stroke-linejoin="round"/>'
+            f'{under.replace("ACCENT", accent)}</g></svg>\n')
+
+
+def tile_svg(option, background, text, accent):
+    """The icon on a rounded tile: an app icon that reads on any background."""
+    body = resolve_accent(ICONS[option["icon"]], accent)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="256" height="256">'
+            f'<rect width="64" height="64" rx="14" fill="{background}"/>'
+            f'<g transform="translate(9 9) scale(0.72)" style="color:{text}">{body}</g></svg>\n')
+
+
 def main():
     for option in OPTIONS:
         folder = HERE / option["slug"]
-        folder.mkdir(exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
         body = ICONS[option["icon"]]
         pal = {role: hexv for _, hexv, role in option["palette"]}
         (folder / "icon.svg").write_text(icon_svg(body))
         (folder / "icon-color.svg").write_text(icon_svg(body, color=pal["text"], accent=pal["accent"]))
         (folder / "wordmark.svg").write_text(wordmark_svg(option))
         (folder / "wordmark-color.svg").write_text(wordmark_svg(option, color=pal["text"], accent=pal["accent"]))
+        if option.get("picked"):
+            (folder / "lockup-dark.svg").write_text(lockup_svg(option, pal["text"], pal["accent"]))
+            (folder / "lockup-light.svg").write_text(lockup_svg(option, pal["background"], pal["accent"]))
+            (folder / "tile.svg").write_text(tile_svg(option, pal["background"], pal["text"], pal["accent"]))
+            # The repo's own icon (marketplace listings, the README).
+            (HERE.parent / "icon.svg").write_text(tile_svg(option, pal["background"], pal["text"], pal["accent"]))
         sheet = folder / "preview.svg"
         sheet.write_text(sheet_svg(option))
         subprocess.run(["rsvg-convert", "-w", "1200", "-o", str(folder / "preview.png"), str(sheet)], check=True)
         sheet.unlink()
-        print("built", folder.name)
+        print("built", option["slug"])
 
 
 if __name__ == "__main__":

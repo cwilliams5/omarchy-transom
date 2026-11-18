@@ -1,8 +1,11 @@
 # Transom branding
 
-Three options to pick from. Each has an icon, a wordmark and a palette, as
-SVGs plus a preview sheet. Nothing is final until one is picked; the README
-uses none of them yet.
+**Picked (2026-11-18): Crossbar**, in `crossbar/`: a window whose bottom
+rail is the bar, a lowercase wordmark sitting on its own bar, and the
+slate/glass/amber palette. The README's header uses its lockup, and
+`icon.svg` at the repo root is its app tile.
+
+The two options not picked are kept in `alternatives/` for reference.
 
 ## The name
 
@@ -36,9 +39,9 @@ branding doesn't use it.)
 - **Voice:** plain and practical, Windows terms where they help ("Lock the
   taskbar", "Combine taskbar buttons"). No hype, no emoji.
 
-## Option 1: Crossbar
+## Option 1: Crossbar (picked)
 
-![Option 1, Crossbar](option-1-crossbar/preview.png)
+![Option 1, Crossbar](crossbar/preview.png)
 
 - **Icon:** a four-pane window whose bottom rail is a solid bar in the
   accent color. It's a window, and it's a taskbar.
@@ -53,7 +56,7 @@ branding doesn't use it.)
 
 ## Option 2: Fanlight
 
-![Option 2, Fanlight](option-2-fanlight/preview.png)
+![Option 2, Fanlight](alternatives/fanlight/preview.png)
 
 - **Icon:** an arched fanlight (the sunburst window above a door) resting
   on a solid bar: a transom in the architectural sense, and a nod to Arch.
@@ -70,7 +73,7 @@ branding doesn't use it.)
 
 ## Option 3: T-bar
 
-![Option 3, T-bar](option-3-tbar/preview.png)
+![Option 3, T-bar](alternatives/tbar/preview.png)
 
 - **Icon:** a bold **T** whose crossbar is a little taskbar with three
   window dots. Simple shapes, so it stays crisp at 16px.
@@ -83,36 +86,29 @@ branding doesn't use it.)
 - **Trade-off:** the playful screen-"o" makes the wordmark a little less
   readable at a glance; the palette is the least Omarchy-like.
 
-## My recommendation
+## Why Crossbar
 
-**Crossbar** for clarity, with **T-bar** as the runner-up if a bolder, more
-ownable mark matters more. Fanlight has the best story but is weakest
-where it matters most: 16px on a bar.
-
-Mixing is fine: e.g. the Crossbar icon with the T-bar wordmark, or any icon
-with a different palette. The generator makes that a few-line change.
+It's the clearest at 16px, where the icon actually lives, and it says
+"window + bar" at a glance. T-bar was the runner-up (the boldest mark);
+Fanlight had the best story but gets busy at small sizes.
 
 ## Files
 
 ```
+icon.svg (repo root)       the app icon: Crossbar on a slate tile
 branding/
   build.py                 makes everything below: python3 branding/build.py
-  option-N-name/
-    icon.svg               one color (currentColor): use this
+  crossbar/
+    icon.svg               one color (currentColor): follows a theme
     icon-color.svg         with the accent
     wordmark.svg           one color
     wordmark-color.svg     with the accent
+    lockup-light.svg       icon + wordmark, for light backgrounds
+    lockup-dark.svg        icon + wordmark, for dark backgrounds
+    tile.svg               the app icon (same as the root icon.svg)
     preview.png            the sheet shown above
+  alternatives/fanlight/, alternatives/tbar/   the options not picked
 ```
 
 The SVGs draw everything as paths, so no font is needed. The preview
 sheets' labels use JetBrains Mono.
-
-## After picking
-
-Tell Claude which one, for example "go with option 1". The pick will then
-be applied:
-
-- the icon and wordmark at the top of the README
-- `icon.svg` at the repo root, for the marketplace listing later
-- the other two options moved out of the way
