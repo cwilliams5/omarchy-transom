@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Minimize a window to the bottom bar's taskbar.
+# Minimize a window to Transom's taskbar.
 # Usage: minimize [window-address]   (the active window when given none)
 #
 # A copy of Omarchy's omarchy-hyprland-window-minimize without its

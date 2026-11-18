@@ -110,6 +110,31 @@ middle; the tray and show desktop on the right. Everything else is opt-in.
 **Tested with** Omarchy 4.5.0-3, Hyprland 0.56.2 and Quickshell 0.3.2, on one
 2x-scaled laptop screen and a virtual second monitor.
 
+**Dependencies:** none beyond Omarchy. Everything Transom runs ships with
+it: Hyprland (`hyprctl`), `jq`, `busctl`, `uwsm-app`, `gtk-launch`,
+`xdg-terminal-exec` and Omarchy's own commands. Only for development:
+Python 3 for the test tools in `dev/`, and Qt's shader compiler
+(`qt6-shadertools`) to rebuild the icon tint shader.
+
+**What it changes:** only its own settings file,
+`~/.config/omarchy/transom.json`. It never edits Omarchy's config; moving
+widgets off the top bar or turning off the dock is up to you.
+
+## Uninstall
+
+```bash
+omarchy plugin remove io.github.cwilliams5.transom
+```
+
+Then, if you want everything back as it was:
+
+- Delete your settings: `rm ~/.config/omarchy/transom.json`.
+- Remove the Super+M line from your Hyprland config, if you added it
+  (Omarchy's own Super+M comes back).
+- Put Omarchy's widgets back on the top bar (drag them in, or add them to
+  `bar.layout` in `~/.config/omarchy/shell.json`), and turn the dock back
+  on if you turned it off: `omarchy plugin enable omarchy.dock`.
+
 ## Known limits
 
 - **Hyprland 0.56.2 stacking bug:** a floating window can stay drawn over a
