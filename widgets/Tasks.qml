@@ -153,17 +153,19 @@ Item {
     return id ? DesktopEntries.byId(id) : null
   }
 
-  function iconFor(appId) {
-    var entry = taskbar.entryFor(appId)
-    var names = [entry ? entry.icon : "", appId, String(appId).toLowerCase(), "application-x-executable"]
-    for (var i = 0; i < names.length; i++) {
-      var name = String(names[i] || "")
-      if (!name) continue
-      if (name.charAt(0) === "/") return "file://" + name
-      var path = Quickshell.iconPath(name, true)
-      if (path) return path
+  // Omarchy runs every coding agent in a terminal with this app id.
+  readonly property string agentAppId: "org.omarchy.agent"
+
+  // Icon candidates for a window, best first (ui/AppIcon.qml picks).
+  // Agent windows get the default agent's logo.
+  function iconsFor(appId) {
+    if (appId === taskbar.agentAppId && taskbar.bar) {
+      var agent = taskbar.bar.agentIcons()
+      if (agent.length > 0) return agent.concat(["utilities-terminal"])
     }
-    return ""
+    var entry = taskbar.entryFor(appId)
+    return [entry ? entry.icon : "", appId, String(appId).toLowerCase(), "application-x-executable"]
+      .filter(function(name) { return !!name })
   }
 
   // ------------------------------------------------------------- actions
@@ -209,7 +211,8 @@ Item {
   // Starts the app again. Most apps open a new window when started while
   // running.
   function newWindow(entry) {
-    if (taskbar.bar) taskbar.bar.launchEntry(taskbar.entryFor(taskbar.appIdOf(entry.toplevel)))
+    if (taskbar.appIdOf(entry.toplevel) === taskbar.agentAppId) Util.execArgv(["omarchy-agent", "--pick"])
+    else if (taskbar.bar) taskbar.bar.launchEntry(taskbar.entryFor(taskbar.appIdOf(entry.toplevel)))
   }
 
   function clicked(entry, button, slot) {
@@ -309,7 +312,10 @@ Item {
       readonly property bool active: !!toplevel && toplevel.activated && !minimized
       readonly property bool urgent: taskbar.cfg.urgentTint && !!toplevel && toplevel.urgent
       readonly property string appId: taskbar.appIdOf(toplevel)
-      readonly property string title: toplevel && toplevel.title ? toplevel.title : appId
+      readonly property string rawTitle: toplevel && toplevel.title ? toplevel.title : appId
+      // Without emoji and symbols, if titleSymbols says so (this also stops
+      // an animated title, like Claude Code's spinner, from moving).
+      readonly property string title: taskbar.cfg.titleSymbols === "strip" ? TasksModel.stripSymbols(rawTitle) : rawTitle
       // The title isn't fully visible, so hovering shows it in a tooltip.
       readonly property bool cutOff: !taskbar.geometry.showText || titleText.truncated
       // What the tooltip shows (TooltipPopup reads it).
@@ -362,18 +368,15 @@ Item {
         anchors.rightMargin: Style.spacing.md
         opacity: button.minimized && taskbar.cfg.minimized === "dimmed" ? 0.5 : 1
 
-        Image {
+        AppIcon {
           id: icon
           x: taskbar.geometry.showText ? 0 : Math.round((parent.width - width) / 2)
           anchors.verticalCenter: parent.verticalCenter
           width: taskbar.iconSize
           height: taskbar.iconSize
-          sourceSize: Qt.size(taskbar.iconSize * 2, taskbar.iconSize * 2)
-          source: taskbar.iconFor(button.appId)
-          fillMode: Image.PreserveAspectFit
-          asynchronous: true
-          smooth: true
-          mipmap: true
+          sources: taskbar.iconsFor(button.appId)
+          tint: taskbar.bar ? taskbar.bar.foreground : Commons.Color.foreground
+          iconStyle: taskbar.bar ? taskbar.bar.iconStyleFor([button.appId, button.rawTitle]) : "color"
         }
 
         Text {
@@ -481,9 +484,12 @@ Item {
   readonly property var menuEntry: menuAddress ? (byAddress[menuAddress] || null) : null
   readonly property bool menuMinimized: !!menuEntry && menuEntry.minimized
   readonly property bool menuFloating: !!menuEntry && !!(menuEntry.toplevel.lastIpcObject || {}).floating
-  readonly property var menuDesktopEntry: menuEntry ? entryFor(appIdOf(menuEntry.toplevel)) : null
-  readonly property bool menuCanLaunch: !!menuDesktopEntry
-  readonly property bool menuPinned: !!menuDesktopEntry && !!bar && bar.isPinnedToQuickLaunch(menuDesktopEntry.id)
+  readonly property bool menuIsAgent: !!menuEntry && appIdOf(menuEntry.toplevel) === agentAppId
+  readonly property var menuDesktopEntry: menuEntry && !menuIsAgent ? entryFor(appIdOf(menuEntry.toplevel)) : null
+  // What Pin to quick launch adds: the app's desktop entry, or "agent".
+  readonly property string menuPinId: menuIsAgent ? "agent" : menuDesktopEntry ? String(menuDesktopEntry.id) : ""
+  readonly property bool menuCanLaunch: menuPinId !== ""
+  readonly property bool menuPinned: menuPinId !== "" && !!bar && bar.isPinnedToQuickLaunch(menuPinId)
   readonly property int menuWorkspaceId: {
     if (!menuEntry || menuMinimized) return -1
     var workspace = menuEntry.toplevel.workspace
@@ -539,7 +545,7 @@ Item {
         visible: taskbar.menuCanLaunch
         text: taskbar.menuPinned ? "Unpin from quick launch" : "Pin to quick launch"
         onTriggered: {
-          var id = taskbar.menuDesktopEntry.id
+          var id = taskbar.menuPinId
           var pinned = taskbar.menuPinned
           taskbar.choose(text, function() {
             if (pinned) taskbar.bar.unpinFromQuickLaunch(id)

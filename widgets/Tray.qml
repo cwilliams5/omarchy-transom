@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -578,11 +577,14 @@ Item {
       color: mouse.containsMouse || button.dragging ? Style.hoverFill : "transparent"
     }
 
-    TrayIcon {
+    AppIcon {
       anchors.centerIn: parent
       width: tray.iconSize
       height: tray.iconSize
-      icon: button.trayItem ? button.trayItem.icon : ""
+      sources: button.trayItem ? [button.trayItem.icon] : []
+      tint: tray.foreground
+      iconStyle: tray.bar && button.trayItem
+        ? tray.bar.iconStyleFor([button.trayItem.id, button.trayItem.title, tray.nameOf(button.trayItem)]) : "color"
     }
 
     MouseArea {
@@ -645,43 +647,6 @@ Item {
       button.dragOffset = 0
       button.suppressClick = true
       if (commit) tray.commitDrag(from, to)
-    }
-  }
-
-  // An app's tray icon. Symbolic icons (named "-symbolic") ship a fixed fill
-  // meant to be recolored, so they're painted in the bar's text color,
-  // as Omarchy's tray does; otherwise they can vanish into the bar.
-  component TrayIcon: Item {
-    id: iconRoot
-
-    property var icon: ""
-    readonly property bool symbolic: String(icon || "").split("?")[0].slice(-9) === "-symbolic"
-
-    Image {
-      id: image
-      anchors.fill: parent
-      fillMode: Image.PreserveAspectFit
-      sourceSize.width: Math.round(width * 2)
-      sourceSize.height: Math.round(height * 2)
-      // Quickshell hands over a ready image:// URL.
-      source: String(iconRoot.icon || "")
-      smooth: true
-      mipmap: true
-      visible: !iconRoot.symbolic
-      layer.enabled: iconRoot.symbolic
-    }
-
-    Rectangle {
-      anchors.fill: image
-      visible: iconRoot.symbolic
-      color: tray.foreground
-      layer.enabled: iconRoot.symbolic
-      layer.effect: MultiEffect {
-        maskEnabled: true
-        maskSource: image
-        maskThresholdMin: 0.5
-        maskSpreadAtMin: 1.0
-      }
     }
   }
 }

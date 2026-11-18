@@ -159,11 +159,54 @@ Item {
     // in the dotfiles repo has the test and the removal steps.
     maximizedRaiseWorkaround: { default: true },
     // "Lock the taskbar": nothing on the bar can be dragged.
-    locked: { default: false }
+    locked: { default: false },
+    // App icons (taskbar buttons, tray, quick launch): as they are, gray,
+    // or gray tinted with the theme's bar text color.
+    iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
+    // Names (any part of an app id or name, any case) whose icons stay in color.
+    iconStyleExceptions: { default: [] }
   })
   readonly property var parsedBarSettings: Settings.parse(layout.bar, barSettingsSpec)
   readonly property var settings: parsedBarSettings.settings
   readonly property bool locked: settings.locked === true
+  readonly property string iconStyle: settings.iconStyle
+
+  // The style for one app's icon, given its ids and names: the bar's,
+  // unless one of them is in iconStyleExceptions.
+  function iconStyleFor(names) {
+    if (root.iconStyle === "color") return "color"
+    var exceptions = root.settings.iconStyleExceptions
+    var list = Settings.toList(names) || []
+    for (var i = 0; i < exceptions.length; i++) {
+      var wanted = String(exceptions[i]).toLowerCase()
+      for (var j = 0; j < list.length; j++) {
+        if (String(list[j] || "").toLowerCase().indexOf(wanted) >= 0) return "color"
+      }
+    }
+    return root.iconStyle
+  }
+
+  // Omarchy's default coding agent (omarchy default agent <name>), for its
+  // logo on quick launch and on its windows' taskbar buttons. The logos ship
+  // with Omarchy's agents panel, some with a twin for light surfaces.
+  property string agentId: ""
+  // Omarchy's plugin host sets this on services; the fallback covers the gap.
+  property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
+  readonly property bool lightBar: 0.2126 * themeBackground.r + 0.7152 * themeBackground.g + 0.0722 * themeBackground.b > 0.5
+
+  FileView {
+    path: Quickshell.env("HOME") + "/.config/omarchy/defaults/agent"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.agentId = text().trim()
+  }
+
+  function agentIcons() {
+    if (!root.agentId) return []
+    var base = root.omarchyPath + "/shell/plugins/agents/assets/" + root.agentId
+    return root.lightBar ? [base + "-light.svg", base + ".svg"] : [base + ".svg"]
+  }
   onParsedBarSettingsChanged: {
     var problems = parsedBarSettings.problems
     for (var i = 0; i < problems.length; i++) console.warn("transom: bar setting ignored: " + problems[i])

@@ -21,7 +21,8 @@ var SETTINGS = {
   scroll: { default: true },                                               // scroll steps through windows
   reorder: { default: true },                                              // drag to reorder
   urgentTint: { default: true },                                           // steady tint for attention
-  workspaces: { default: 5, min: 1, max: 10 }                             // in the menu's "Move to"
+  workspaces: { default: 5, min: 1, max: 10 },                            // in the menu's "Move to"
+  titleSymbols: { default: "keep", choices: ["keep", "strip"] }           // strip: drop emoji and symbols from titles
 }
 
 // ------------------------------------------------------- which windows
@@ -204,9 +205,35 @@ function claimingEntryId(appId, entries) {
   return ""
 }
 
+// ------------------------------------------------------------- titles
+
+// Symbols apps put in window titles: emoji and pictographs, dingbats (✳),
+// shapes (● ◐), block and Braille spinner frames (▁ ⠋), stars and weather
+// (★ ☀), Nerd Font icons (private use), and the joiners and selectors that
+// glue emoji together. Letters, digits and ordinary punctuation stay.
+var SYMBOLS = new RegExp("[" +
+  "\u2300-\u23FF" +            // misc technical (⌛ ⏳ ⏸)
+  "\u2580-\u25FF" +            // blocks, geometric shapes
+  "\u2600-\u27BF" +            // misc symbols, dingbats
+  "\u2800-\u28FF" +            // Braille (spinners)
+  "\u2B00-\u2BFF" +            // misc symbols and arrows (⭐ ⬤)
+  "\uE000-\uF8FF" +            // private use (Nerd Font icons)
+  "\uFE00-\uFE0F\u200D\u20E3" + // variation selectors, joiner, keycap
+  "]|[\uD83C-\uD83E][\uDC00-\uDFFF]" + // emoji and pictographs (U+1F000-U+1FBFF)
+  "|\uDB80[\uDC00-\uDFFF]|[\uDB81-\uDBFF][\uDC00-\uDFFF]", "g") // supplementary private use
+
+// A window title without symbols: "✳ Claude Code" is "Claude Code". Spaces
+// left doubled are collapsed. A title that's nothing but symbols stays as it is.
+function stripSymbols(title) {
+  var text = String(title || "")
+  var out = text.replace(SYMBOLS, " ").replace(/\s+/g, " ").trim()
+  return out || text
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     SETTINGS: SETTINGS,
+    stripSymbols: stripSymbols,
     MINIMIZED_WORKSPACE: MINIMIZED_WORKSPACE,
     toList: toList,
     describe: describe,

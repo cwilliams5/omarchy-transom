@@ -39,6 +39,9 @@ AnchoredPopup {
   readonly property var taskbar: Settings.parse(bar ? bar.entryFor("tasks") : null, TasksModel.SETTINGS).settings
   readonly property var tray: Settings.parse(bar ? bar.entryFor("tray") : null, TrayModel.SETTINGS).settings
 
+  readonly property string iconStyle: bar ? bar.iconStyle : "color"
+  readonly property var iconStyles: ["color", "mono", "themed"]
+  readonly property var iconStyleNames: ({ "color": "color", "mono": "gray", "themed": "theme color" })
   readonly property var windowModes: ["workspace", "monitor", "all"]
   readonly property var windowModeNames: ({ "workspace": "this workspace", "monitor": "this screen", "all": "all" })
 
@@ -58,6 +61,18 @@ AnchoredPopup {
       checkColumn: true
       checked: !!menu.bar && menu.bar.locked
       onTriggered: menu.change("bar", { locked: !checked })
+    }
+
+    // Steps through the icon styles on each click.
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Icons: " + menu.iconStyleNames[menu.iconStyle]
+      checkColumn: true
+      hasChildren: true
+      onTriggered: {
+        var styles = menu.iconStyles
+        menu.change("bar", { iconStyle: styles[(styles.indexOf(menu.iconStyle) + 1) % styles.length] })
+      }
     }
 
     MenuItemRow {
@@ -89,6 +104,15 @@ AnchoredPopup {
       checkColumn: true
       checked: menu.taskbar.labels === "icon"
       onTriggered: menu.change("tasks", { labels: checked ? "title" : "icon" })
+    }
+
+    MenuItemRow {
+      visible: menu.page === "main" && menu.taskbarOn
+      indent: 1
+      text: "Plain titles (no emoji)"
+      checkColumn: true
+      checked: menu.taskbar.titleSymbols === "strip"
+      onTriggered: menu.change("tasks", { titleSymbols: checked ? "keep" : "strip" })
     }
 
     // Steps through the choices on each click.

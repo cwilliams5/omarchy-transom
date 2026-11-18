@@ -467,6 +467,30 @@ test("moveEntry: no change gives null", () => {
   assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", "omarchy.power"), null)
 })
 
+// ----------------------------------------------------------------- titles
+
+test("stripSymbols: Claude's spinner frames and emoji go", () => {
+  assert.strictEqual(M.stripSymbols("✳ Claude Code"), "Claude Code")
+  assert.strictEqual(M.stripSymbols("◐ Omarchy bar now-…"), "Omarchy bar now-…")
+  assert.strictEqual(M.stripSymbols("⠋ Building"), "Building")
+  assert.strictEqual(M.stripSymbols("🚀 Launch 🎉 party"), "Launch party")
+  assert.strictEqual(M.stripSymbols("👩‍💻 dev"), "dev")
+  assert.strictEqual(M.stripSymbols("❤️ Music"), "Music")
+  assert.strictEqual(M.stripSymbols(" nvim"), "nvim")
+})
+
+test("stripSymbols: ordinary text and punctuation stay", () => {
+  assert.strictEqual(M.stripSymbols("README.md — Visual Studio Code"), "README.md — Visual Studio Code")
+  assert.strictEqual(M.stripSymbols("Inbox (3) - Mail · Work"), "Inbox (3) - Mail · Work")
+  assert.strictEqual(M.stripSymbols("Café № 5: 50% off → today"), "Café № 5: 50% off → today")
+  assert.strictEqual(M.stripSymbols("日本語のタイトル"), "日本語のタイトル")
+})
+
+test("stripSymbols: a title of only symbols stays", () => {
+  assert.strictEqual(M.stripSymbols("⏳"), "⏳")
+  assert.strictEqual(M.stripSymbols(""), "")
+})
+
 // ------------------------------------------------------------ quick launch
 
 test("quick launch: apps can be names, specials, apps with args, commands", () => {

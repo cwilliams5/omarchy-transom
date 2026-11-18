@@ -50,8 +50,6 @@ Item {
 
   property string terminalId: ""
   property string browserId: ""
-  property string agentId: ""
-  readonly property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
 
   Process {
     command: ["xdg-terminal-exec", "--print-id"]
@@ -63,28 +61,6 @@ Item {
     command: ["omarchy-cmd-default-browser"]
     running: true
     stdout: StdioCollector { onStreamFinished: launcher.browserId = text.trim().replace(/\.desktop$/, "") }
-  }
-
-  // Omarchy's default agent (omarchy default agent <name>).
-  FileView {
-    path: Quickshell.env("HOME") + "/.config/omarchy/defaults/agent"
-    watchChanges: true
-    printErrors: false
-    onFileChanged: reload()
-    onLoaded: launcher.agentId = text().trim()
-  }
-
-  // Agents' marks ship with Omarchy's agents panel, some with a twin for
-  // light surfaces.
-  readonly property bool lightBar: {
-    var color = Commons.Color.bar.background
-    return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
-  }
-
-  function agentIcons() {
-    if (!launcher.agentId) return []
-    var base = launcher.omarchyPath + "/shell/plugins/agents/assets/" + launcher.agentId
-    return launcher.lightBar ? [base + "-light.svg", base + ".svg"] : [base + ".svg"]
   }
 
   // ------------------------------------------------------------ the buttons
@@ -101,10 +77,10 @@ Item {
     var icons = item.icon ? [item.icon] : []
     if (item.special === "terminal") entry = launcher.lookup(launcher.terminalId)
     else if (item.special === "browser") entry = launcher.lookup(launcher.browserId)
-    else if (item.special === "agent") icons = icons.concat(launcher.agentIcons())
+    else if (item.special === "agent" && launcher.bar) icons = icons.concat(launcher.bar.agentIcons())
     else if (item.app) entry = launcher.lookup(item.app)
     if (!name) {
-      if (item.special === "agent") name = QuickLaunchModel.agentName(launcher.agentId)
+      if (item.special === "agent") name = QuickLaunchModel.agentName(launcher.bar ? launcher.bar.agentId : "")
       else if (entry && entry.name) name = String(entry.name)
       else if (item.special) name = QuickLaunchModel.SPECIALS[item.special].name
       else name = item.app || item.command.split(" ")[0]
@@ -248,6 +224,9 @@ Item {
       width: launcher.iconSize
       height: launcher.iconSize
       sources: slotItem.button ? slotItem.button.icons : []
+      tint: launcher.bar ? launcher.bar.foreground : "white"
+      iconStyle: launcher.bar && slotItem.button
+        ? launcher.bar.iconStyleFor([slotItem.button.item.app, slotItem.button.item.special, slotItem.button.name]) : "color"
     }
 
     MouseArea {

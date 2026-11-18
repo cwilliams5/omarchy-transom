@@ -33,6 +33,8 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | Option | Default | What |
 |---|---|---|
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
+| `iconStyle` | `"color"` | App icons on the taskbar buttons, tray and quick launch: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of the theme's bar text color (follows theme changes). See "Monochrome icons". |
+| `iconStyleExceptions` | `[]` | Names whose icons stay in color, e.g. `["spotify"]` (any part of the app id or name, any case) |
 | `maximizedRaiseWorkaround` | `true` | Works around a Hyprland 0.56.2 bug when bringing a maximized window forward (see "Maximized windows and stacking"). Temporary: turn off and remove once Hyprland fixes it. |
 
 `"enabled": false` keeps a widget's settings but takes it off the bar. Leave a
@@ -50,8 +52,10 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Row | Does |
 |---|---|
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
+| Icons: … | Cycles `iconStyle`: color → gray → theme color |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
+| ⤷ Plain titles (no emoji) | Its `titleSymbols` |
 | ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
 | Quick launch ✓ | Show or hide quick launch (the first time, it starts with your browser and terminal) |
 | System tray ✓ | Show or hide the tray |
@@ -108,6 +112,7 @@ by `Settings.js`.
 | `reorder` | `true` | Drag buttons to reorder |
 | `urgentTint` | `true` | Steady tint on windows asking for attention |
 | `workspaces` | `5` | Workspaces in the menu's "Move to" (1–10) |
+| `titleSymbols` | `"keep"` | `"strip"` drops emoji and symbols from titles: "✳ Claude Code" shows as "Claude Code". It also stops animated titles (Claude Code's spinner) from moving. Letters, digits, punctuation and arrows stay. |
 
 Example: left-aligned, icon-only, every window on the screen:
 
@@ -263,6 +268,24 @@ lands on the right; drag it to the left). Take it off the top bar's
   as Super+Alt+Space. It opens in the middle of the screen, as Omarchy's menu
   always does; it has no option to open from a corner.
 - **Right click:** a new terminal (Omarchy's choice for this button).
+
+## Monochrome icons
+
+The bar option `iconStyle` (or the bar menu's "Icons" row) restyles every app
+icon on the bar: taskbar buttons, tray and quick launch. Omarchy's own
+widgets are already monochrome.
+
+- `"mono"`: grays.
+- `"themed"`: shades of the theme's bar text color, so icons change with the
+  theme.
+- Both squeeze each icon's shades into the bright half of the range on a dark
+  bar (the dark half on a light one), so dark icons such as Steam's stay
+  visible and busy ones keep their detail.
+- `iconStyleExceptions` keeps chosen apps in color.
+
+Symbolic icons (made to be recolored) are always painted in the text color,
+whatever the style. Coding-agent windows (`org.omarchy.agent`, from
+`omarchy agent`) show the default agent's logo instead of a terminal icon.
 
 ## Moving widgets
 
