@@ -22,7 +22,8 @@
       "urgentTint": true,
       "workspaces": 5,
       "titleSymbols": "keep",
-      "combine": "never"
+      "combine": "never",
+      "thumbnails": false
     }
   ],
   "right": [

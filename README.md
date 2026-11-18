@@ -62,6 +62,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
 | ⤷ Combine: … | Cycles `combine`: never → when full → always |
+| ⤷ Window thumbnails | Its `thumbnails` |
 | ⤷ Plain titles (no emoji) | Its `titleSymbols` |
 | ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
 | Quick launch ✓ | Show or hide quick launch (the first time, it starts with your browser and terminal) |
@@ -120,6 +121,7 @@ by `Settings.js`.
 | `urgentTint` | `true` | Steady tint on windows asking for attention |
 | `workspaces` | `5` | Workspaces in the menu's "Move to" (1–10) |
 | `combine` | `"never"` | Windows' "combine taskbar buttons": `"never"` (one button per window), `"full"` (one per app once the windows' own buttons would be squeezed to icons), `"always"` (one per app, icons only, as on Windows 11). See "Combined buttons". |
+| `thumbnails` | `false` | Hovering a window's button shows a live picture of the window instead of the title tooltip; a combined button's list becomes a strip of them. See "Thumbnails". |
 | `titleSymbols` | `"keep"` | `"strip"` drops emoji and symbols from titles: "✳ Claude Code" shows as "Claude Code". It also stops animated titles (Claude Code's spinner) from moving. Letters, digits, punctuation and arrows stay. |
 
 Example: left-aligned, icon-only, every window on the screen:
@@ -145,6 +147,16 @@ An app with one window keeps a plain window button (with "always" it's
 icon-only). Apps are told apart by desktop entry: every Chrome window is one
 app, but each web app is its own, as on the taskbar anyway. Coding-agent
 windows group as the agent.
+
+### Thumbnails
+
+Off by default (Cody turns them off on Windows too: visual noise). With
+`thumbnails` on, hovering a window's button for `tooltipDelay` ms shows its
+title and a live picture of the window, and a combined button's click shows
+a strip of them, Windows-style: click one to bring it forward. Minimized
+windows still have a picture (Hyprland keeps their last frame); a window that
+gives none shows "No preview". Pictures are only captured while shown
+(Quickshell's `ScreencopyView`, `ui/WindowPreview.qml`).
 
 ## Quick launch (`quicklaunch`)
 
@@ -401,7 +413,8 @@ top bar runs, with its real panel, which opens upward.
 | `defaults.json` | The layout and settings used until `~/.config/omarchy/transom.json` exists. |
 | `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |
 | `widgets/QuickLaunch.qml`, `QuickLaunchModel.js` | Quick launch: buttons, launching, its menu; the model parses `apps` and does pinning. |
-| `ui/AppIcon.qml` | An app icon that falls back through candidate images. |
+| `ui/AppIcon.qml` | An app icon that falls back through candidate images, in the bar's icon style. |
+| `ui/WindowPreview.qml`, `ui/ThumbnailPopup.qml` | A live picture of a window, and the hover thumbnail built on it. |
 | `widgets/Tray.qml` | The system tray: icons, "^" flyout, app menus, pin/hide, drag. |
 | `widgets/OmarchyWidget.qml`, `ui/OmarchyBarApi.qml` | Hosting Omarchy's own widgets (see above). |
 | `widgets/ShowDesktop.qml` | The show-desktop button. |

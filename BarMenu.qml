@@ -146,6 +146,15 @@ AnchoredPopup {
     MenuItemRow {
       visible: menu.page === "main" && menu.taskbarOn
       indent: 1
+      text: "Window thumbnails"
+      checkColumn: true
+      checked: menu.taskbar.thumbnails
+      onTriggered: menu.change("tasks", { thumbnails: !checked })
+    }
+
+    MenuItemRow {
+      visible: menu.page === "main" && menu.taskbarOn
+      indent: 1
       text: "Plain titles (no emoji)"
       checkColumn: true
       checked: menu.taskbar.titleSymbols === "strip"

@@ -23,7 +23,8 @@ var SETTINGS = {
   urgentTint: { default: true },                                           // steady tint for attention
   workspaces: { default: 5, min: 1, max: 10 },                            // in the menu's "Move to"
   titleSymbols: { default: "keep", choices: ["keep", "strip"] },          // strip: drop emoji and symbols from titles
-  combine: { default: "never", choices: ["never", "full", "always"] }     // one button per app: never, when full, always
+  combine: { default: "never", choices: ["never", "full", "always"] },    // one button per app: never, when full, always
+  thumbnails: { default: false }                                           // hover shows a live picture of the window
 }
 
 // ------------------------------------------------------- which windows

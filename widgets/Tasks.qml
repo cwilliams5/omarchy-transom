@@ -383,6 +383,8 @@ Item {
       readonly property bool cutOff: !taskbar.geometry.showText || titleText.truncated
       // What the tooltip shows (TooltipPopup reads it).
       readonly property string tipText: grouped ? title + " (" + entries.length + " windows)" : title
+      // What a hover thumbnail shows (ThumbnailPopup reads it).
+      readonly property var previewToplevel: !grouped && toplevel ? toplevel : null
 
       // Dragging: this button follows the pointer; the ones it passes step
       // aside by one slot.
@@ -553,13 +555,28 @@ Item {
     fontFamily: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
   }
 
+  // With thumbnails on, a window's button shows its thumbnail on hover
+  // instead (a combined button's thumbnails come with its list).
+  ThumbnailPopup {
+    id: thumbnail
+    delay: taskbar.cfg.tooltipDelay
+    fontFamily: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+  }
+
   function hovered(slot, inside) {
-    if (inside && !(taskbar.cfg.tooltip && slot.cutOff && taskbar.dragFrom < 0 && !taskbar.popupVisible)) return
+    var busy = taskbar.dragFrom >= 0 || taskbar.popupVisible
+    if (taskbar.cfg.thumbnails && slot.previewToplevel) {
+      if (inside && busy) return
+      thumbnail.hovered(slot, inside)
+      return
+    }
+    if (inside && !(taskbar.cfg.tooltip && slot.cutOff && !busy)) return
     tooltip.hovered(slot, inside)
   }
 
   function hideTooltip() {
     tooltip.hide()
+    thumbnail.hide()
   }
 
   // The bar calls this to close our popups when another widget opens one.
@@ -568,7 +585,7 @@ Item {
   }
 
   // Whether one of its popups is open (the bar stays up while one is).
-  readonly property bool popupVisible: menuPopup.open || listPopup.open || groupMenuPopup.open
+  readonly property bool popupVisible: menuPopup.open || listPopup.open || stripPopup.open || groupMenuPopup.open
 
   // ---------------------------------------------------------------- menu
 
@@ -747,6 +764,7 @@ Item {
     taskbar.menuAddress = ""
     taskbar.groupMenuKey = ""
     listPopup.target = slot
+    stripPopup.target = slot
     taskbar.listKey = key
   }
 
@@ -773,7 +791,7 @@ Item {
 
   AnchoredPopup {
     id: listPopup
-    open: taskbar.listEntries.length > 0
+    open: taskbar.listEntries.length > 0 && !taskbar.cfg.thumbnails
     onOutsideClicked: taskbar.closeMenu()
     onVisibleChanged: if (visible) taskbar.hideTooltip()
 
@@ -795,6 +813,100 @@ Item {
             if (entry.minimized) taskbar.restoreWindow(entry)
             else taskbar.focusWindow(entry)
             taskbar.closeMenu()
+          }
+        }
+      }
+    }
+  }
+
+  // With thumbnails on, the list is a strip of them, like Windows': each
+  // window's icon, title and live picture. Click one to bring it forward.
+  AnchoredPopup {
+    id: stripPopup
+    open: taskbar.listEntries.length > 0 && taskbar.cfg.thumbnails
+    onOutsideClicked: taskbar.closeMenu()
+    onVisibleChanged: if (visible) taskbar.hideTooltip()
+
+    BorderSurface {
+      width: strip.width + Style.space(12)
+      height: strip.height + Style.space(12)
+      radius: Style.cornerRadius
+      color: Commons.Color.popups.background
+      borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Style.normalBorderWidth)
+
+      Row {
+        id: strip
+        x: Style.space(6)
+        y: Style.space(6)
+        spacing: Style.space(6)
+
+        Repeater {
+          model: stripPopup.open ? taskbar.listEntries : []
+          delegate: Rectangle {
+            id: card
+
+            required property var modelData
+            readonly property bool current: modelData.toplevel.activated && !modelData.minimized
+
+            width: Style.space(200) + Style.space(12)
+            height: cardColumn.height + Style.space(12)
+            radius: Style.cornerRadius
+            color: cardMouse.containsMouse ? Style.hoverFill : current ? Style.selectedFill : "transparent"
+            opacity: modelData.minimized ? 0.6 : 1
+
+            Column {
+              id: cardColumn
+              x: Style.space(6)
+              y: Style.space(6)
+              width: Style.space(200)
+              spacing: Style.space(6)
+
+              Row {
+                width: parent.width
+                spacing: Style.space(6)
+
+                AppIcon {
+                  width: Style.space(14)
+                  height: Style.space(14)
+                  anchors.verticalCenter: parent.verticalCenter
+                  sources: taskbar.iconsFor(taskbar.appIdOf(card.modelData.toplevel))
+                }
+
+                Text {
+                  width: parent.width - Style.space(20)
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: taskbar.windowTitle(card.modelData) || taskbar.appIdOf(card.modelData.toplevel)
+                  elide: Text.ElideRight
+                  color: Commons.Color.popups.text
+                  font.family: taskbar.bar ? taskbar.bar.fontFamily : Style.font.family
+                  font.pixelSize: Style.font.body
+                }
+              }
+
+              WindowPreview {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: implicitWidth
+                height: implicitHeight
+                maxWidth: Style.space(200)
+                maxHeight: Style.space(125)
+                toplevel: card.modelData.toplevel
+              }
+            }
+
+            MouseArea {
+              id: cardMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              // Act first: closing the strip destroys this card.
+              onClicked: {
+                var entry = card.modelData
+                if (entry.minimized) taskbar.restoreWindow(entry)
+                else taskbar.focusWindow(entry)
+                taskbar.closeMenu()
+              }
+            }
           }
         }
       }
