@@ -394,6 +394,78 @@ test("afterClick ignores the order windows are listed in", () => {
   assert.strictEqual(T.afterClick({ windows: ["0x2", "0x1"], window: "0x1" }, { windows: ["0x1", "0x2"], window: "0x1" }, {}), "focus")
 })
 
+// ------------------------------------------------- dragging whole widgets
+
+const sides = {
+  left: [{ id: "omarchy.menu", x: 8, width: 27 }],
+  right: [
+    { id: "tray", x: 1000, width: 81 },
+    { id: "omarchy.network", x: 1081, width: 27 },
+    { id: "omarchy.power", x: 1108, width: 54 },
+    { id: "showdesktop", x: 1162, width: 10 }
+  ]
+}
+
+test("dropSpot: the bar's half picks the section", () => {
+  assert.deepStrictEqual(R.dropSpot(sides, 100, 600), { section: "left", index: 1 })
+  assert.deepStrictEqual(R.dropSpot(sides, 10, 600), { section: "left", index: 0 })
+  assert.deepStrictEqual(R.dropSpot(sides, 700, 600), { section: "right", index: 0 })
+})
+
+test("dropSpot: lands before the first widget whose center is past it", () => {
+  assert.deepStrictEqual(R.dropSpot(sides, 1050, 600), { section: "right", index: 1 })
+  assert.deepStrictEqual(R.dropSpot(sides, 1100, 600), { section: "right", index: 2 })
+})
+
+test("dropSpot: never after show desktop", () => {
+  assert.deepStrictEqual(R.dropSpot(sides, 1199, 600), { section: "right", index: 3 })
+  assert.deepStrictEqual(R.dropSpot({ left: [], right: [] }, 900, 600), { section: "right", index: 0 })
+})
+
+test("sidePositions: a left section grows rightward, a right one leftward", () => {
+  assert.deepStrictEqual(R.sidePositions([27, 54], "left", 8, -1, 0), { xs: [8, 35], gapX: null })
+  assert.deepStrictEqual(R.sidePositions([27, 54], "left", 8, 1, 30), { xs: [8, 65], gapX: 35 })
+  assert.deepStrictEqual(R.sidePositions([27, 10], "right", 200, -1, 0), { xs: [163, 190], gapX: null })
+  assert.deepStrictEqual(R.sidePositions([27, 10], "right", 200, 1, 30), { xs: [133, 190], gapX: 160 })
+  assert.deepStrictEqual(R.sidePositions([], "right", 200, 0, 30), { xs: [], gapX: 170 })
+})
+
+const layout = {
+  bar: { locked: false },
+  left: [{ id: "omarchy.menu" }],
+  center: [{ id: "tasks", align: "center" }],
+  right: [{ id: "tray", maxIcons: 5 }, { id: "omarchy.network" }, { id: "omarchy.power", showPercentage: true }, { id: "showdesktop" }]
+}
+
+test("moveEntry: within a section, keeping its settings", () => {
+  const next = R.moveEntry(layout, "omarchy.power", "right", "omarchy.network")
+  assert.deepStrictEqual(next.right.map((e) => e.id), ["tray", "omarchy.power", "omarchy.network", "showdesktop"])
+  assert.strictEqual(next.right[1].showPercentage, true)
+  assert.deepStrictEqual(next.bar, { locked: false })
+  assert.strictEqual(layout.right[2].id, "omarchy.power", "the original isn't changed")
+})
+
+test("moveEntry: between sections", () => {
+  const next = R.moveEntry(layout, "omarchy.network", "left", "")
+  assert.deepStrictEqual(next.left.map((e) => e.id), ["omarchy.menu", "omarchy.network"])
+  assert.deepStrictEqual(next.right.map((e) => e.id), ["tray", "omarchy.power", "showdesktop"])
+  const first = R.moveEntry(layout, "omarchy.network", "left", "omarchy.menu")
+  assert.deepStrictEqual(first.left.map((e) => e.id), ["omarchy.network", "omarchy.menu"])
+})
+
+test("moveEntry: the end of the right section is before show desktop", () => {
+  const next = R.moveEntry(layout, "omarchy.menu", "right", "")
+  assert.deepStrictEqual(next.right.map((e) => e.id), ["tray", "omarchy.network", "omarchy.power", "omarchy.menu", "showdesktop"])
+  assert.deepStrictEqual(next.left, [])
+})
+
+test("moveEntry: no change gives null", () => {
+  assert.strictEqual(R.moveEntry(layout, "omarchy.network", "right", "omarchy.power"), null)
+  assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", ""), null)
+  assert.strictEqual(R.moveEntry(layout, "nothing", "right", ""), null)
+  assert.strictEqual(R.moveEntry(layout, "omarchy.power", "right", "omarchy.power"), null)
+})
+
 if (failures) {
   console.log("\n" + failures + " failed")
   process.exit(1)

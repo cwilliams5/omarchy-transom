@@ -8,6 +8,7 @@ import Quickshell.Services.SystemTray
 import "Settings.js" as Settings
 import "TasksModel.js" as TasksModel
 import "TrayModel.js" as TrayModel
+import "Reorder.js" as Reorder
 
 // Transom: a Windows-style taskbar along the bottom edge of every screen. It
 // takes its look from Omarchy's top bar (theme colors, font, height, and the
@@ -104,14 +105,17 @@ Item {
     return !!widgets && !!widgets[String(id || "")]
   }
 
+  // Omarchy hands over its widget catalogue a moment after the plugin
+  // (re)loads. Its widgets load then; until then they aren't unknown.
+  readonly property bool catalogueReady: !!(root.barWidgetRegistry && root.barWidgetRegistry.widgets
+    && Object.keys(root.barWidgetRegistry.widgets).length > 0)
+
   function widgetUrl(id) {
-    if (!root.widgets[String(id || "")] && root.isOmarchyWidget(id)) return Qt.resolvedUrl("widgets/OmarchyWidget.qml")
-    var file = root.widgets[String(id || "")]
-    if (!file) {
-      console.warn("transom: no widget called \"" + id + "\" (known: " + Object.keys(root.widgets).join(", ") + ")")
-      return ""
-    }
-    return Qt.resolvedUrl(file)
+    var key = String(id || "")
+    if (root.widgets[key]) return Qt.resolvedUrl(root.widgets[key])
+    if (root.isOmarchyWidget(key)) return Qt.resolvedUrl("widgets/OmarchyWidget.qml")
+    if (root.catalogueReady) console.warn("transom: no widget called \"" + key + "\" (known: " + Object.keys(root.widgets).join(", ") + ", and Omarchy's)")
+    return ""
   }
 
   // ---------------------------------------------------- layout and settings
@@ -151,10 +155,13 @@ Item {
     // See raiseSteps. Remove once Hyprland draws a focused maximized window
     // above floating ones: docs/upstream/hyprland-maximized-float-stacking/
     // in the dotfiles repo has the test and the removal steps.
-    maximizedRaiseWorkaround: { default: true }
+    maximizedRaiseWorkaround: { default: true },
+    // "Lock the taskbar": nothing on the bar can be dragged.
+    locked: { default: false }
   })
   readonly property var parsedBarSettings: Settings.parse(layout.bar, barSettingsSpec)
   readonly property var settings: parsedBarSettings.settings
+  readonly property bool locked: settings.locked === true
   onParsedBarSettingsChanged: {
     var problems = parsedBarSettings.problems
     for (var i = 0; i < problems.length; i++) console.warn("transom: bar setting ignored: " + problems[i])
@@ -258,6 +265,23 @@ Item {
       else entry[key] = changes[key]
     }
     console.log("transom: setting " + id + " " + JSON.stringify(changes))
+    root.saveLayout(next)
+  }
+
+  // Omarchy's own widgets (the start button, network, battery...) are
+  // dragged as a whole along the side sections. Transom's own widgets
+  // aren't: the tray, the taskbar buttons and quick launch drag their icons
+  // instead, and show desktop stays in the corner.
+  function canDragWidget(id) {
+    return !root.locked && !root.widgets[String(id || "")] && root.isOmarchyWidget(id)
+  }
+
+  // Moves a widget into section, before the widget beforeId (or to the
+  // end, before show desktop), keeping its settings. From a drag.
+  function moveWidget(id, section, beforeId) {
+    var next = Reorder.moveEntry(root.layout, id, section, beforeId)
+    if (!next) return
+    console.log("transom: moved " + id + " to " + section + (beforeId ? " before " + beforeId : ""))
     root.saveLayout(next)
   }
 

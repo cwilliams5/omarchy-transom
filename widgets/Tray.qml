@@ -604,7 +604,7 @@ Item {
 
       onPositionChanged: function(event) {
         var count = tray.arranged.bar.length
-        if (button.barIndex < 0 || !(event.buttons & Qt.LeftButton) || count < 2) return
+        if (button.barIndex < 0 || !(event.buttons & Qt.LeftButton) || !tray.cfg.reorder || (tray.bar && tray.bar.locked) || count < 2) return
         var offset = mouse.mapToItem(tray, event.x, 0).x - button.pressX
         if (!button.dragging) {
           if (Math.abs(offset) < Style.space(6)) return

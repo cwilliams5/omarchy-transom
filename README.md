@@ -32,6 +32,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 
 | Option | Default | What |
 |---|---|---|
+| `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
 | `maximizedRaiseWorkaround` | `true` | Works around a Hyprland 0.56.2 bug when bringing a maximized window forward (see "Maximized windows and stacking"). Temporary: turn off and remove once Hyprland fixes it. |
 
 `"enabled": false` keeps a widget's settings but takes it off the bar. Leave a
@@ -48,6 +49,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 
 | Row | Does |
 |---|---|
+| Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
 | ⤷ Windows: … | Cycles `windows`: this workspace → this screen → all |
@@ -169,6 +171,7 @@ top bar. Superwhisper's icon is left out while its widget is on either bar.
 | `overflow` | `true` | `false` shows every icon on the bar |
 | `maxIcons` | `6` | Icons on the bar before the rest go behind "^" (0–50). Pinned icons don't count against it. |
 | `pinned` | `[]` | Names never put in the overflow, even past `maxIcons`. Set from the icon's menu. |
+| `reorder` | `true` | Drag icons on the bar to reorder them. |
 | `order` | `[]` | Names in the order the icons sit, set by dragging. Icons it doesn't name yet follow: pinned ones, then the rest in the order they appeared. The unpinned icons last in the order overflow first. |
 | `hidden` | `[]` | Names never shown |
 | `tooltip` | `true` | The app's name on hover |
@@ -203,6 +206,19 @@ between, the click minimizes everything again. The minimized windows are
 ordinary ones: they're on the taskbar, dimmed. Entry
 `{ "id": "showdesktop" }`; settings `width` (px, default 10) and `tooltip`.
 It's last in the right section, flush with the corner.
+
+## Moving widgets
+
+Drag one of Omarchy's widgets (network, battery, the start button...) along
+the bar to move it: within its side, or across to the other side. The others
+step aside to show where it will land; let go to drop it. A short press is
+still a click. Show desktop stays in the corner. Transom's own tray, taskbar
+buttons and quick launch don't move this way, since dragging inside them
+reorders their icons; change their place in the settings file. "Lock the
+taskbar" turns all dragging off.
+
+The drop saves the layout. Saving keeps every widget alive (each section is a
+model keyed by widget id), so only the moved one changes place.
 
 ## Omarchy's own widgets (network, power, bluetooth…)
 
@@ -331,13 +347,18 @@ They expect the top bar's internals; an adapter for them is being tried.
 ## Developing
 
 - **Tests:** `node tests/run.js` covers the pure logic (`*.js`).
-- **Clicking from a script:** `dev/vclick.py` clicks through Wayland's
-  virtual-pointer protocol (Python only; `--click-here` clicks where the
-  pointer is). `dev/clicklog.py` runs in a test terminal and counts the clicks
-  it receives. On a 2x-scaled screen Hyprland confines a virtual pointer to
-  the top-left quarter, so place the pointer with
-  `hyprctl dispatch 'hl.dsp.cursor.move({ x = X, y = Y })'` and then
-  `vclick.py --click-here`.
+- **Clicking and dragging from a script:** `dev/vclick.py` drives the pointer
+  through Wayland's virtual-pointer protocol (Python only).
+  - `--click-here` clicks where the pointer is (`--right`, `--middle` for
+    other buttons); `--drag DX` presses, moves DX pixels sideways and lets go.
+  - On a 2x-scaled screen Hyprland confines a virtual pointer's *absolute*
+    moves to the top-left quarter, so place the pointer with
+    `hyprctl dispatch 'hl.dsp.cursor.move({ x = X, y = Y })'` first.
+    Relative moves (`--drag`) work anywhere.
+  - `dev/clicklog.py` runs in a test terminal and counts the clicks it
+    receives.
+  - Editing anything in the plugin folder, `dev/` included, reloads the
+    plugin. Don't do it in the middle of a test.
 - **Restart the shell after editing QML:** `omarchy restart shell`. Saving a
   file here triggers Omarchy's plugin reload, but QML files that are already
   loaded stay cached, so the reload runs the old code. (Seen 2026-11-17: the
@@ -365,15 +386,16 @@ They expect the top bar's internals; an adapter for them is being tried.
 - **Dispatch syntax** is Hyprland's Lua API (`hl.dsp.window.move({ … })`).
   Copy forms from `/usr/share/omarchy/default/hypr/` and Omarchy's dock
   (`/usr/share/omarchy/shell/plugins/dock/Dock.qml`).
-- Tracked in the dotfiles repo (`~/Work/dotfiles`). After changes:
-  `chezmoi add ~/.config/omarchy/plugins/io.github.cwilliams5.transom`, then commit and push.
+- **This folder is the git repo** (`cwilliams5/omarchy-transom`). Commit and
+  push here. Cody's dotfiles only list it by URL and keep Cody's
+  `transom.json`.
 
 ## Not built yet
 
 - Very long tray menus don't scroll yet
 - Translations (menus and tooltips are English only)
-- Its own public repo, so others can install it with `omarchy plugin add`
-  (it lives in Cody's dotfiles for now)
+- Public release: the repo is private for now; publishing needs a license
+  and a listing on omarchyplugins.com
 
 Decided against: grouping windows by app, thumbnail previews, flashing for
 attention, a per-window audio indicator or volume slider. Omarchy's sound

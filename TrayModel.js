@@ -12,6 +12,7 @@ var SETTINGS = {
   maxIcons: { default: 6, min: 0, max: 50 },     // icons on the bar before the overflow
   pinned: { default: [] },                       // names never put in the overflow
   order: { default: [] },                        // names in the order they sit (set by dragging)
+  reorder: { default: true },                    // drag icons on the bar to reorder them
   hidden: { default: [] },                       // names never shown
   tooltip: { default: true },                    // the app's name on hover
   tooltipDelay: { default: 600, min: 0, max: 5000 },

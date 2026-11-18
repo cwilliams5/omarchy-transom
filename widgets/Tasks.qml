@@ -409,7 +409,7 @@ Item {
         }
 
         onPositionChanged: function(event) {
-          if (!(event.buttons & Qt.LeftButton) || !taskbar.cfg.reorder || buttons.count < 2) return
+          if (!(event.buttons & Qt.LeftButton) || !taskbar.cfg.reorder || (taskbar.bar && taskbar.bar.locked) || buttons.count < 2) return
           var offset = mouse.mapToItem(taskbar, event.x, 0).x - button.pressX
           if (!button.dragging) {
             if (Math.abs(offset) < Style.space(6)) return

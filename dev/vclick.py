@@ -5,6 +5,13 @@ it speaks the Wayland wire protocol directly.
 
     vclick.py X Y WIDTH HEIGHT [--move-only]
     vclick.py --click-here          (left-click wherever the pointer is)
+    vclick.py --drag DX [--warp]    (press where the pointer is, move DX
+                                     pixels sideways in small steps, release)
+
+--drag moves with relative motion events, like a real mouse. On a scaled
+screen Hyprland may clamp those to the top-left quarter; --warp moves with
+Hyprland's cursor.move dispatcher instead (logical pixels), button held.
+--right or --middle clicks with that button instead of the left one.
 
 X, Y: where to click, in layout pixels. WIDTH, HEIGHT: the size of the whole
 layout (all monitors); the pointer starts from its top-left corner. Uses
@@ -13,10 +20,13 @@ $WAYLAND_DISPLAY, so it can drive a nested compositor too.
 import os
 import socket
 import struct
+import subprocess
 import sys
 import time
 
 BTN_LEFT = 0x110
+BTN_RIGHT = 0x111
+BTN_MIDDLE = 0x112
 
 
 def pad(b):
@@ -71,15 +81,30 @@ class Wayland:
                 on_event(obj, opcode, body)
 
 
+def cursor_pos():
+    out = subprocess.run(["hyprctl", "cursorpos"], capture_output=True, text=True).stdout
+    x, y = (float(v) for v in out.strip().split(","))
+    return x, y
+
+
 def main():
     click_here = "--click-here" in sys.argv
+    drag = "--drag" in sys.argv
+    warp = "--warp" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    drag_dx = 0
+    if drag:
+        if len(args) != 1:
+            raise SystemExit(__doc__)
+        drag_dx = int(float(args[0]))
+        click_here = True
     if click_here:
         args = ["0", "0", "1", "1"]
     if len(args) != 4:
         raise SystemExit(__doc__)
     x, y, width, height = (int(float(a)) for a in args)
     move_only = "--move-only" in sys.argv
+    button = BTN_RIGHT if "--right" in sys.argv else BTN_MIDDLE if "--middle" in sys.argv else BTN_LEFT
 
     wl = Wayland()
     registry = wl.new_id()
@@ -126,13 +151,38 @@ def main():
         remaining_y -= dy
         time.sleep(0.004)
     wl.roundtrip()
-    if not move_only:
+    if drag:
+        start_x, start_y = cursor_pos()
         time.sleep(0.15)
-        wl.send(pointer, 2, struct.pack("<III", now(), BTN_LEFT, 1))  # button pressed
+        wl.send(pointer, 2, struct.pack("<III", now(), button, 1))  # button pressed
+        wl.send(pointer, 4)
+        wl.roundtrip()
+        time.sleep(0.1)
+        steps = max(1, abs(drag_dx) // 4)
+        moved = 0
+        for i in range(1, steps + 1):
+            target = round(drag_dx * i / steps)
+            if warp:
+                subprocess.run(["hyprctl", "dispatch",
+                                "hl.dsp.cursor.move({ x = %d, y = %d })" % (start_x + target, start_y)],
+                               capture_output=True)
+            else:
+                wl.send(pointer, 0, struct.pack("<Iii", now(), (target - moved) * 256, 0))
+                wl.send(pointer, 4)
+                wl.roundtrip()
+            moved = target
+            time.sleep(0.012)
+        time.sleep(0.15)
+        wl.send(pointer, 2, struct.pack("<III", now(), button, 0))  # button released
+        wl.send(pointer, 4)
+        wl.roundtrip()
+    elif not move_only:
+        time.sleep(0.15)
+        wl.send(pointer, 2, struct.pack("<III", now(), button, 1))  # button pressed
         wl.send(pointer, 4)
         wl.roundtrip()
         time.sleep(0.08)
-        wl.send(pointer, 2, struct.pack("<III", now(), BTN_LEFT, 0))  # button released
+        wl.send(pointer, 2, struct.pack("<III", now(), button, 0))  # button released
         wl.send(pointer, 4)
         wl.roundtrip()
     wl.send(pointer, 8)  # destroy

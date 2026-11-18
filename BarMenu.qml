@@ -50,6 +50,20 @@ AnchoredPopup {
 
     // ------------------------------------------------------- main page
 
+    // Windows' wording. Locked, nothing on the bar can be dragged.
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Lock the taskbar"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.locked
+      onTriggered: menu.change("bar", { locked: !checked })
+    }
+
+    MenuItemRow {
+      visible: menu.page === "main"
+      separator: true
+    }
+
     MenuItemRow {
       visible: menu.page === "main"
       text: "Taskbar buttons"

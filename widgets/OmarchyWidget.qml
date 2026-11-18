@@ -32,6 +32,12 @@ Item {
     if (open && "close" in open) open.close()
   }
 
+  // The bar calls this when the widget starts being dragged.
+  function dragStarted() {
+    tooltip.hide()
+    host.closePopups()
+  }
+
   OmarchyBarApi {
     id: api
     service: host.bar
