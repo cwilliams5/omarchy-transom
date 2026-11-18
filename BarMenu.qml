@@ -30,6 +30,9 @@ AnchoredPopup {
     menu.open = false
   }
 
+  // The bar stays up while this is open.
+  readonly property bool popupVisible: menu.open
+
   onOutsideClicked: menu.open = false
 
   readonly property bool taskbarOn: !!bar && bar.widgetEnabled("tasks")
@@ -50,7 +53,7 @@ AnchoredPopup {
   }
 
   MenuCard {
-    contentWidth: Style.space(240)
+    contentWidth: Style.space(270)
 
     // ------------------------------------------------------- main page
 
@@ -61,6 +64,15 @@ AnchoredPopup {
       checkColumn: true
       checked: !!menu.bar && menu.bar.locked
       onTriggered: menu.change("bar", { locked: !checked })
+    }
+
+    // Windows' wording again: hidden until the pointer reaches the edge.
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Automatically hide the taskbar"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.settings.autohide === true
+      onTriggered: menu.change("bar", { autohide: !checked })
     }
 
     // Steps through the icon styles on each click.

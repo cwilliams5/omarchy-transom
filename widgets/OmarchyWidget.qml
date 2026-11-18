@@ -32,6 +32,9 @@ Item {
     if (open && "close" in open) open.close()
   }
 
+  // Whether its panel is open (the bar stays up while it is).
+  readonly property bool popupVisible: !!api.activePopout
+
   // The bar calls this when the widget starts being dragged.
   function dragStarted() {
     tooltip.hide()

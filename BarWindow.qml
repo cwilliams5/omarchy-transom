@@ -42,10 +42,58 @@ PanelWindow {
   }
 
   implicitHeight: bar ? bar.barSize : 26
-  exclusionMode: ExclusionMode.Normal
-  exclusiveZone: implicitHeight
+  // Auto-hidden, the bar reserves no space: windows reach the bottom edge,
+  // and the bar shows over them when it comes up, without moving them.
+  exclusionMode: autohide ? ExclusionMode.Ignore : ExclusionMode.Normal
+  exclusiveZone: autohide ? 0 : implicitHeight
   color: "transparent"
   surfaceFormat.opaque: false
+
+  // ----------------------------------------------------------- auto-hide
+
+  // Windows' "Automatically hide the taskbar" (bar option autohide). The
+  // window stays mapped; hidden, its content sits below the screen edge and
+  // only a 2px strip along the edge takes input. The pointer reaching it
+  // brings the bar up. It goes again autohideDelay ms after the pointer
+  // leaves, but never while one of its menus or panels is open, or while
+  // something is being dragged.
+  readonly property bool autohide: !!bar && bar.settings.autohide === true
+  property bool revealed: false
+  readonly property bool shown: !autohide || revealed || (!!bar && bar.popupOpen) || dragId !== ""
+  onAutohideChanged: revealed = false
+
+  mask: Region { item: window.shown ? content : trigger }
+
+  HoverHandler {
+    id: barHover
+    onHoveredChanged: {
+      if (hovered) {
+        hideTimer.stop()
+        window.revealed = true
+      } else if (window.autohide) {
+        hideTimer.restart()
+      }
+    }
+  }
+
+  Timer {
+    id: hideTimer
+    interval: window.bar ? window.bar.settings.autohideDelay : 600
+    onTriggered: {
+      if (barHover.hovered) return
+      // Something is open or being dragged: look again later.
+      if ((window.bar && window.bar.popupOpen) || window.dragId !== "") restart()
+      else window.revealed = false
+    }
+  }
+
+  // The edge strip that brings the bar up.
+  Item {
+    id: trigger
+    anchors.bottom: parent.bottom
+    width: parent.width
+    height: 2
+  }
 
   // Omarchy's own bar namespace, on purpose: Hyprland's layer rules for the
   // top bar (glassy blur, no slide-in animation, the window-glassy toggle)
@@ -58,41 +106,6 @@ PanelWindow {
   readonly property bool endsWithShowDesktop: {
     var right = window.bar ? window.bar.shownLayout.right : []
     return right.length > 0 && right[right.length - 1].id === "showdesktop"
-  }
-
-  Rectangle {
-    anchors.fill: parent
-    color: window.bar ? window.bar.background : "transparent"
-  }
-
-  // A click on empty bar space closes whatever popup is open; a right click
-  // opens the bar's own menu there (BarMenu.qml), like Windows' taskbar
-  // menu. Widgets sit on top of this, so their own clicks never reach it;
-  // empty space inside a widget (the taskbar's sides) does.
-  MouseArea {
-    anchors.fill: parent
-    acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-    onPressed: function(event) {
-      if (!window.bar) return
-      if (event.button === Qt.RightButton) {
-        menuAnchor.x = event.x
-        barMenu.show(menuAnchor)
-      } else {
-        window.bar.dismissPopups()
-      }
-    }
-  }
-
-  // Where the bar menu opens: the point that was right-clicked.
-  Item {
-    id: menuAnchor
-    width: 1
-    height: parent.height
-  }
-
-  BarMenu {
-    id: barMenu
-    bar: window.bar
   }
 
   // Each section's widgets follow a model keyed by widget id, so saving the
@@ -135,36 +148,105 @@ PanelWindow {
     return null
   }
 
-  // Left and right sections are as wide as their widgets.
-  Row {
-    id: leftSection
-    anchors.left: parent.left
-    anchors.leftMargin: window.gutter
-    height: parent.height
-    // No gap between widgets, as on Omarchy's top bar: every icon sits on
-    // the same grid (Style.bar.iconSlot).
-    spacing: 0
-
-    Repeater {
-      id: leftRepeater
-      model: leftModel
-      delegate: WidgetSlot { height: leftSection.height; section: "left" }
-    }
+  BarMenu {
+    id: barMenu
+    bar: window.bar
   }
 
-  Row {
-    id: rightSection
-    anchors.right: parent.right
-    // Show desktop sits in the very corner, as on Windows.
-    anchors.rightMargin: window.endsWithShowDesktop ? 0 : window.gutter
-    height: parent.height
-    spacing: 0
-
-    Repeater {
-      id: rightRepeater
-      model: rightModel
-      delegate: WidgetSlot { height: rightSection.height; section: "right" }
+  // Everything the bar draws. Auto-hidden, it moves below the edge.
+  Item {
+    id: content
+    width: window.width
+    height: window.height
+    y: window.shown ? 0 : height
+    Behavior on y {
+      enabled: !!window.bar && window.bar.settings.reveal === "slide"
+      NumberAnimation { duration: Style.duration(150); easing.type: Easing.OutCubic }
     }
+
+    Rectangle {
+      anchors.fill: parent
+      color: window.bar ? window.bar.background : "transparent"
+    }
+
+    // A click on empty bar space closes whatever popup is open; a right click
+    // opens the bar's own menu there (BarMenu.qml), like Windows' taskbar
+    // menu. Widgets sit on top of this, so their own clicks never reach it;
+    // empty space inside a widget (the taskbar's sides) does.
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+      onPressed: function(event) {
+        if (!window.bar) return
+        if (event.button === Qt.RightButton) {
+          menuAnchor.x = event.x
+          barMenu.show(menuAnchor)
+        } else {
+          window.bar.dismissPopups()
+        }
+      }
+    }
+
+    // Where the bar menu opens: the point that was right-clicked.
+    Item {
+      id: menuAnchor
+      width: 1
+      height: parent.height
+    }
+
+    // Left and right sections are as wide as their widgets.
+    Row {
+      id: leftSection
+      anchors.left: parent.left
+      anchors.leftMargin: window.gutter
+      height: parent.height
+      // No gap between widgets, as on Omarchy's top bar: every icon sits on
+      // the same grid (Style.bar.iconSlot).
+      spacing: 0
+
+      Repeater {
+        id: leftRepeater
+        model: leftModel
+        delegate: WidgetSlot { height: leftSection.height; section: "left" }
+      }
+    }
+
+    Row {
+      id: rightSection
+      anchors.right: parent.right
+      // Show desktop sits in the very corner, as on Windows.
+      anchors.rightMargin: window.endsWithShowDesktop ? 0 : window.gutter
+      height: parent.height
+      spacing: 0
+
+      Repeater {
+        id: rightRepeater
+        model: rightModel
+        delegate: WidgetSlot { height: rightSection.height; section: "right" }
+      }
+    }
+
+    // The center section takes the width between them. A widget that sets
+    // fills: true (the taskbar) gets whatever its neighbours leave.
+    RowLayout {
+      id: centerSection
+      anchors.left: leftSection.right
+      anchors.right: rightSection.left
+      anchors.leftMargin: window.gutter
+      anchors.rightMargin: window.gutter
+      height: parent.height
+      spacing: Style.spacing.sm
+
+      Repeater {
+        model: centerModel
+        delegate: WidgetSlot {
+          Layout.fillWidth: !!item && item.fills === true
+          Layout.fillHeight: true
+          Layout.preferredWidth: item ? item.implicitWidth : 0
+        }
+      }
+    }
+
   }
 
   // ------------------------------------------------- dragging a widget
@@ -243,27 +325,6 @@ PanelWindow {
     window.dragOffset = 0
     if (!commit || !spot || !window.bar) return
     window.bar.moveWidget(id, spot.section, spot.index < list.length ? list[spot.index].id : "")
-  }
-
-  // The center section takes the width between them. A widget that sets
-  // fills: true (the taskbar) gets whatever its neighbours leave.
-  RowLayout {
-    id: centerSection
-    anchors.left: leftSection.right
-    anchors.right: rightSection.left
-    anchors.leftMargin: window.gutter
-    anchors.rightMargin: window.gutter
-    height: parent.height
-    spacing: Style.spacing.sm
-
-    Repeater {
-      model: centerModel
-      delegate: WidgetSlot {
-        Layout.fillWidth: !!item && item.fills === true
-        Layout.fillHeight: true
-        Layout.preferredWidth: item ? item.implicitWidth : 0
-      }
-    }
   }
 
   // Loads one widget from the layout and hands it the bar. A widget can

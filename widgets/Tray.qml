@@ -253,6 +253,9 @@ Item {
     tray.flyoutOpen = false
   }
 
+  // Whether one of its popups is open (the bar stays up while one is).
+  readonly property bool popupVisible: flyout.open || menuPopup.open
+
   // ------------------------------------------------------------- the row
 
   Row {

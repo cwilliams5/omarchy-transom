@@ -478,6 +478,9 @@ Item {
     taskbar.closeMenu()
   }
 
+  // Whether its menu is open (the bar stays up while it is).
+  readonly property bool popupVisible: menuPopup.open
+
   // ---------------------------------------------------------------- menu
 
   property string menuAddress: ""

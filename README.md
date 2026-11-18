@@ -34,6 +34,9 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 |---|---|---|
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
 | `iconStyle` | `"color"` | App icons on the taskbar buttons, tray and quick launch: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of the theme's bar text color (follows theme changes). See "Monochrome icons". |
+| `autohide` | `false` | Windows' "Automatically hide the taskbar". See "Auto-hide". |
+| `autohideDelay` | `600` | ms after the pointer leaves before it hides (0-10000) |
+| `reveal` | `"instant"` | How it comes and goes: `"instant"` or `"slide"` (a 150ms slide) |
 | `iconStyleExceptions` | `[]` | Names whose icons stay in color, e.g. `["spotify"]` (any part of the app id or name, any case) |
 | `maximizedRaiseWorkaround` | `true` | Works around a Hyprland 0.56.2 bug when bringing a maximized window forward (see "Maximized windows and stacking"). Temporary: turn off and remove once Hyprland fixes it. |
 
@@ -52,6 +55,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Row | Does |
 |---|---|
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
+| Automatically hide the taskbar ✓ | The bar option `autohide` |
 | Icons: … | Cycles `iconStyle`: color → gray → theme color |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
@@ -268,6 +272,21 @@ lands on the right; drag it to the left). Take it off the top bar's
   as Super+Alt+Space. It opens in the middle of the screen, as Omarchy's menu
   always does; it has no option to open from a corner.
 - **Right click:** a new terminal (Omarchy's choice for this button).
+
+## Auto-hide
+
+With `autohide` on, the bar hides and gives its space back: tiled and
+maximized windows reach the bottom edge. Push the pointer to the bottom
+edge and it comes up *over* the windows, without resizing them. It goes
+again `autohideDelay` ms after the pointer leaves. It never hides while
+one of its menus or panels is open (the bar menu, a tray menu, the network
+panel...) or while something is being dragged.
+
+How: the bar's window stays mapped, but reserves no space
+(`ExclusionMode.Ignore`). Hidden, its content sits below the screen edge and
+only a 2px strip along the edge takes input (the window's input mask), so
+clicks everywhere else reach the windows. Each widget tells the bar whether
+one of its popups is open (`popupVisible`, read through `Service.popupOpen`).
 
 ## Monochrome icons
 

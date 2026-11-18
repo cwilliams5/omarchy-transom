@@ -96,6 +96,10 @@ Item {
     root.popupOwner = owner
   }
 
+  // Whether the popup that claimed the bar is still open. Owners say so
+  // with popupVisible.
+  readonly property bool popupOpen: !!popupOwner && popupOwner.popupVisible === true
+
   function dismissPopups() {
     if (root.popupOwner && typeof root.popupOwner.closePopups === "function") root.popupOwner.closePopups()
     root.popupOwner = null
@@ -164,7 +168,14 @@ Item {
     // or gray tinted with the theme's bar text color.
     iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
     // Names (any part of an app id or name, any case) whose icons stay in color.
-    iconStyleExceptions: { default: [] }
+    iconStyleExceptions: { default: [] },
+    // Windows' "Automatically hide the taskbar": hidden until the pointer
+    // reaches the bottom edge, and windows get the space back.
+    autohide: { default: false },
+    // How long after the pointer leaves the bar it hides (ms).
+    autohideDelay: { default: 600, min: 0, max: 10000 },
+    // How it appears and goes: at once, or sliding (a short slide).
+    reveal: { default: "instant", choices: ["instant", "slide"] }
   })
   readonly property var parsedBarSettings: Settings.parse(layout.bar, barSettingsSpec)
   readonly property var settings: parsedBarSettings.settings

@@ -300,6 +300,8 @@ Item {
   }
 
   property int menuIndex: -1
+  // Whether its menu is open (the bar stays up while it is).
+  readonly property bool popupVisible: menuPopup.open
   readonly property var menuButton: menuIndex >= 0 ? (buttons[menuIndex] || null) : null
   // The app's own actions, except the new window the top row already is.
   readonly property var menuActions: {
