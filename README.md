@@ -1,18 +1,114 @@
 # Transom
 
-**A Windows-style taskbar for Omarchy:** start button, quick launch, this
-workspace's windows, tray, show desktop.
+**A Windows-style taskbar for [Omarchy](https://omarchy.org):** start button,
+quick launch, this workspace's windows, tray, show desktop.
 
-A second bar along the bottom of every screen, plugin id
-`io.github.cwilliams5.transom`. It's as tall as Omarchy's top bar and follows
-its look: theme colors, font, and the clear/glassy/opaque background chosen
-for the top bar. It holds widgets in left, center and right sections: the
-**taskbar buttons** (`tasks`, one per window) in the center; on the right a
-**system tray**, any of **Omarchy's own widgets** (network, battery…), and a
-**show desktop** button in the corner.
+![Transom on Omarchy's Monokai theme](media/hero.png)
 
-(A transom is the horizontal bar across a window. This one sits across all
-of yours.)
+A second bar along the bottom of every screen, for people who think in
+taskbars. It's as tall as Omarchy's top bar and dresses like it: theme
+colors, font, and the clear, glassy or opaque background you picked for the
+top bar. Change the theme and it follows. (A transom is the horizontal bar
+across a window. This one sits across all of yours.)
+
+![The bar following eight Omarchy themes](media/themes.gif)
+
+## What you get
+
+- **Taskbar buttons for this workspace's windows** (or this screen's, or
+  all), in the order you drag them into.
+  - Click to focus, middle-click to close, scroll to step through windows.
+  - Windows minimized with Super+M stay on their workspace's taskbar,
+    dimmed, until you click them back.
+  - Right-click for New window, Pin to quick launch, Minimize, Move to
+    workspace, Float/Tile, and Close.
+  - Optional: *combine buttons* (never, when full, always) and live *window
+    thumbnails*.
+
+  ![Combined buttons with live thumbnails](media/combined-thumbnails.png)
+
+- **A start button and quick launch.** Omarchy's own menu button, plus your
+  apps. A click always opens a *new* window on this workspace. Right-click
+  shows the app's own actions (Chrome's New Incognito Window). Pin apps
+  from any window's button.
+
+  ![Quick launch's menu](media/quicklaunch-menu.png)
+
+- **A system tray that behaves like Windows'.** Click an icon and the app's
+  window comes forward, or the app starts, even for apps that ignore tray
+  clicks. Overflow "^", pinned and hidden icons, the apps' own menus, drag
+  to reorder.
+- **Omarchy's own widgets, unchanged:** network, Bluetooth, battery,
+  Tailscale and any other, with their real panels. Drag them anywhere
+  along the bar.
+- **Show desktop** in the corner, Windows-style.
+- **A right-click bar menu** for everything that matters, so you rarely need
+  the settings file: lock the taskbar, auto-hide, icon style, combine,
+  thumbnails, widgets on/off.
+
+  <img src="media/bar-menu.png" alt="The bar menu" width="320">
+
+- **And:** auto-hide that gives windows the space back, monochrome or
+  theme-colored icons, emoji-free window titles, one bar per screen (or
+  just the primary), and every option in one JSON file.
+
+  ![Icons in color, gray, and theme color](media/icon-styles.png)
+
+## Install
+
+Transom is an Omarchy shell plugin (a service with its own bar).
+
+```bash
+omarchy plugin add https://github.com/cwilliams5/omarchy-transom.git --enable
+```
+
+Or clone it yourself and switch it on:
+
+```bash
+git clone https://github.com/cwilliams5/omarchy-transom.git \
+  ~/.config/omarchy/plugins/io.github.cwilliams5.transom
+omarchy plugin enable io.github.cwilliams5.transom
+```
+
+Then, optionally:
+
+- **Put Omarchy's widgets on it:** right-click the bar, "Omarchy widgets",
+  tick the ones you want, and take them off the top bar (drag them off, or
+  remove them from `bar.layout` in `~/.config/omarchy/shell.json`).
+- **Add a start button:** tick "Omarchy menu" on the same page.
+- **Make Super+M minimize on every workspace** (Omarchy's only minimizes on
+  floating ones), in your Hyprland config:
+
+  ```lua
+  o.rebind("SUPER + M", "Minimize window to the taskbar",
+    os.getenv("HOME") .. "/.config/omarchy/plugins/io.github.cwilliams5.transom/minimize")
+  ```
+- **Turn off Omarchy's dock**, which the taskbar replaces:
+  `omarchy plugin disable omarchy.dock`.
+
+The out-of-the-box bar is deliberately plain: the taskbar buttons in the
+middle; the tray and show desktop on the right. Everything else is opt-in.
+
+**Tested with** Omarchy 4.5.0-3, Hyprland 0.56.2 and Quickshell 0.3.2, on one
+2x-scaled laptop screen and a virtual second monitor.
+
+## Known limits
+
+- **Hyprland 0.56.2 stacking bug:** a floating window can stay drawn over a
+  focused *maximized* window. The bar works around it when it brings a
+  maximized window forward (`maximizedRaiseWorkaround`, on by default).
+- **Single-window apps** (Spotify, Steam, Notion) just come forward from
+  quick launch; there's no second window to open.
+- **The start button's menu** opens in the middle of the screen, as
+  Omarchy's menu always does.
+- **Omarchy widgets on two bars** (two screens, or top and bottom): their
+  keyboard shortcuts open the first copy's panel.
+- English only, for now.
+
+---
+
+The rest of this page is the reference: every setting, how each part works,
+and notes for changing it.
 
 ## Settings: where they live, how to change them
 
@@ -150,7 +246,7 @@ windows group as the agent.
 
 ### Thumbnails
 
-Off by default (Cody turns them off on Windows too: visual noise). With
+Off by default: plenty of people turn them off on Windows too (visual noise). With
 `thumbnails` on, hovering a window's button for `tooltipDelay` ms shows its
 title and a live picture of the window, and a combined button's click shows
 a strip of them, Windows-style: click one to bring it forward. Minimized
@@ -182,7 +278,7 @@ launch" takes it off.
 | Setting | Default | What |
 |---|---|---|
 | `apps` | `[]` | The buttons, in order (below) |
-| `iconSize` | `16` | Icon size in px (8-32). Cody's bar uses 14, like the tray. |
+| `iconSize` | `16` | Icon size in px (8-32). 14 matches a tray set to 14. |
 | `tooltip` | `true` | The app's name on hover |
 | `tooltipDelay` | `600` | ms before it shows |
 | `reorder` | `true` | Drag to reorder |
@@ -207,8 +303,8 @@ The icons apps show while running in the background, like Steam, Discord,
 Notion, or Chrome with "continue running background apps" on. Apps publish
 them over StatusNotifierItem, Linux's notification area, which Quickshell's
 `SystemTray` reads. It's the same list Omarchy's top-bar tray shows; only one
-of the two should be on screen. Cody's top bar has `omarchy.tray` turned
-off (`omarchy plugin disable omarchy.tray`; `enable` brings it back).
+of the two should be on screen: take `omarchy.tray` off the top bar
+(`omarchy plugin disable omarchy.tray`; `enable` brings it back).
 
 | Action | Result |
 |---|---|
@@ -420,12 +516,15 @@ top bar runs, with its real panel, which opens upward.
 | `widgets/ShowDesktop.qml` | The show-desktop button. |
 | `TasksModel.js`, `TrayModel.js` | Each widget's settings spec and pure logic (which windows or icons show, order, sizes, pins). |
 | `Settings.js` | Checks a widget's layout entry against its spec. |
-| `Reorder.js` | Drag-to-reorder math, shared by the taskbar and the tray. |
+| `Reorder.js` | Drag-to-reorder math: the taskbar, tray and quick launch icons, and whole widgets along the bar. |
 | `tray-window` | For a tray icon's left click: its app's process and most recent window (see System tray). |
 | `ui/AnchoredPopup.qml` | Base of every popup: sits above an item, closes on an outside click. Handles the two popup traps (see Developing). |
 | `ui/TooltipPopup.qml`, `ui/MenuCard.qml`, `ui/MenuItemRow.qml` | Tooltip, menu card and menu row in Omarchy's popup style. |
 | `tests/run.js` | Tests for the `.js` files: `node tests/run.js` |
 | `minimize` | Minimizes a window (the active one, or an address). Omarchy's minimize minus its floating-only check. |
+| `dev/` | Test tools: `vclick.py` (click and drag from a script) and `clicklog.py` (a terminal that counts clicks). |
+| `media/` | The README's screenshots. |
+| `branding/` | Logo and wordmark options (`BRANDING.md`), and `build.py` to regenerate them. |
 
 ## Adding a widget
 
@@ -479,15 +578,12 @@ They expect the top bar's internals; an adapter for them is being tried.
   window (`raiseSteps` in `Service.qml`), it un-maximizes it, raises it and
   maximizes it again, with animation off. Reproduced 2026-11-17 with two
   solid-colored `foot` windows on a spare workspace. Omarchy's dock and
-  keyboard focus have the same problem. Floating workspaces no longer hit
-  it: their maximize is now `~/.config/hypr/fake_maximize.lua` (a resize, so
-  `fullscreen` stays 0; see `fake_maximize.md` next to it). This workaround
-  still matters on tiled and scrolling workspaces. Keep `isMaximized` meaning
-  real maximized (`fullscreen == 1`); fake-maximized windows only need the
-  plain raise. **On hold** until Hyprland 0.57.2+,
-  which may fix it. The dotfiles repo's
-  `docs/upstream/hyprland-maximized-float-stacking/README.md` has the
-  re-test, and the steps to remove this workaround.
+  keyboard focus have the same problem. A "maximize" that's really a resize
+  (some setups do this on floating workspaces) doesn't hit it, since
+  `fullscreen` stays 0. Keep `isMaximized` meaning real maximized
+  (`fullscreen == 1`); other windows only need the plain raise. Re-test on
+  Hyprland 0.57.2 or later, which may fix it, then turn the option off and
+  remove the workaround.
 - **App tray menus** are drawn by us. Qt's native menus can't open in
   Omarchy's shell (it isn't started in QApplication mode), as Omarchy's own
   tray notes.
@@ -538,9 +634,9 @@ They expect the top bar's internals; an adapter for them is being tried.
 - **Dispatch syntax** is Hyprland's Lua API (`hl.dsp.window.move({ … })`).
   Copy forms from `/usr/share/omarchy/default/hypr/` and Omarchy's dock
   (`/usr/share/omarchy/shell/plugins/dock/Dock.qml`).
-- **This folder is the git repo** (`cwilliams5/omarchy-transom`). Commit and
-  push here. Cody's dotfiles only list it by URL and keep Cody's
-  `transom.json`.
+- **This folder is the git repo** (`cwilliams5/omarchy-transom`): edit it in
+  place, restart the shell, commit and push here. Your settings
+  (`~/.config/omarchy/transom.json`) live outside it.
 
 ## Not built yet
 
@@ -549,6 +645,7 @@ They expect the top bar's internals; an adapter for them is being tried.
 - Public release: the repo is private for now; publishing needs a license
   and a listing on omarchyplugins.com
 
-Decided against: flashing for attention, a per-window audio indicator or volume slider. Omarchy's sound
-menu already has per-app volume, and Chrome and its web apps share one
-process, so sound can't be tied to one of their windows.
+Decided against: flashing for attention, and a per-window audio indicator
+or volume slider. Omarchy's sound menu already has per-app volume, and
+Chrome and its web apps share one process, so sound can't be tied to one of
+their windows.
