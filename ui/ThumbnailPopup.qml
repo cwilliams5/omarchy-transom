@@ -75,6 +75,7 @@ AnchoredPopup {
         height: implicitHeight
         // Captures only while shown.
         toplevel: thumb.open && thumb.anchorTarget ? thumb.anchorTarget.previewToplevel : null
+        iconSources: thumb.anchorTarget && thumb.anchorTarget.previewIcons ? thumb.anchorTarget.previewIcons : []
         live: thumb.open
       }
     }

@@ -400,6 +400,7 @@ Item {
       readonly property string tipText: grouped ? title + " (" + entries.length + " windows)" : title
       // What a hover thumbnail shows (ThumbnailPopup reads it).
       readonly property var previewToplevel: !grouped && toplevel ? toplevel : null
+      readonly property var previewIcons: taskbar.iconsFor(appId)
 
       // Dragging: this button follows the pointer; the ones it passes step
       // aside by one slot.
@@ -926,6 +927,7 @@ Item {
                 maxWidth: Style.space(200)
                 maxHeight: Style.space(125)
                 toplevel: card.modelData ? card.modelData.toplevel : null
+                iconSources: card.modelData ? taskbar.iconsFor(taskbar.appIdOf(card.modelData.toplevel)) : []
               }
             }
 

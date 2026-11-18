@@ -80,14 +80,6 @@ Transom is an Omarchy shell plugin (a service with its own bar).
 omarchy plugin add https://github.com/cwilliams5/omarchy-transom.git --enable
 ```
 
-Or clone it yourself and switch it on:
-
-```bash
-git clone https://github.com/cwilliams5/omarchy-transom.git \
-  ~/.config/omarchy/plugins/io.github.cwilliams5.transom
-omarchy plugin enable io.github.cwilliams5.transom
-```
-
 Then, optionally:
 
 - **Put Omarchy's widgets on it:** right-click the bar, "Omarchy widgets",
@@ -297,7 +289,10 @@ Off by default: plenty of people turn them off on Windows too (visual noise). Wi
 title and a live picture of the window, and a combined button's click shows
 a strip of them, Windows-style: click one to bring it forward. Minimized
 windows still have a picture (Hyprland keeps their last frame); a window that
-gives none shows "No preview". Pictures are only captured while shown
+gives none shows "No preview". Windows hidden from screen capture on purpose
+(Omarchy marks password managers like Bitwarden and 1Password
+`no_screen_share`) are never captured: their thumbnail is the app's icon and
+"Hidden from screen capture". Pictures are only captured while shown
 (Quickshell's `ScreencopyView`, `ui/WindowPreview.qml`).
 
 ## Quick launch (`quicklaunch`)
