@@ -169,9 +169,27 @@ Item {
     maximizedRaiseWorkaround: { default: true },
     // "Lock the taskbar": nothing on the bar can be dragged.
     locked: { default: false },
-    // App icons (taskbar buttons, tray, quick launch): as they are, gray,
-    // or gray tinted with the theme's bar text color.
+    // App icons: as they are, in grays, or in shades of the theme's color.
     iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
+    // The theme color "themed" uses: its accent (changes most visibly with
+    // the theme) or its bar text color (matches Omarchy's widget glyphs).
+    iconTint: { default: "accent", choices: ["accent", "text"] },
+    // Which icons the style applies to. Window buttons keep their colors
+    // unless switched on here; the active window can stay in color while
+    // the others are restyled.
+    iconStyleOn: {
+      default: { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false },
+      hint: "an object like {\"tray\": true, \"quickLaunch\": true, \"inactiveWindows\": false, \"activeWindow\": false}",
+      accept: function(value) {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+        var out = { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false }
+        for (var key in value) {
+          if (!(key in out) || typeof value[key] !== "boolean") return undefined
+          out[key] = value[key]
+        }
+        return out
+      }
+    },
     // Names (any part of an app id or name, any case) whose icons stay in color.
     iconStyleExceptions: { default: [] },
     // Windows' "Automatically hide the taskbar": hidden until the pointer
@@ -200,10 +218,13 @@ Item {
   readonly property bool locked: settings.locked === true
   readonly property string iconStyle: settings.iconStyle
 
-  // The style for one app's icon, given its ids and names: the bar's,
-  // unless one of them is in iconStyleExceptions.
-  function iconStyleFor(names) {
+  // The style for one app's icon, given where it is (target: "tray",
+  // "quickLaunch", "inactiveWindows" or "activeWindow", see iconStyleOn) and
+  // its ids and names: the bar's, unless that place is left out or a name is
+  // in iconStyleExceptions.
+  function iconStyleFor(names, target) {
     if (root.iconStyle === "color") return "color"
+    if (target && root.settings.iconStyleOn[target] !== true) return "color"
     var exceptions = root.settings.iconStyleExceptions
     var list = Settings.toList(names) || []
     for (var i = 0; i < exceptions.length; i++) {
@@ -213,6 +234,14 @@ Item {
       }
     }
     return root.iconStyle
+  }
+
+  // The color an icon of this style is drawn in: for themed, the theme's
+  // accent or bar text color (iconTint); otherwise the bar text color, which
+  // symbolic icons are always filled with.
+  function iconTintFor(style) {
+    if (style === "themed" && root.settings.iconTint === "accent") return Commons.Color.accent
+    return root.foreground
   }
 
   // Omarchy's default coding agent (omarchy default agent <name>), for its

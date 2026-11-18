@@ -585,9 +585,9 @@ Item {
       width: tray.iconSize
       height: tray.iconSize
       sources: button.trayItem ? [button.trayItem.icon] : []
-      tint: tray.foreground
       iconStyle: tray.bar && button.trayItem
-        ? tray.bar.iconStyleFor([button.trayItem.id, button.trayItem.title, tray.nameOf(button.trayItem)]) : "color"
+        ? tray.bar.iconStyleFor([button.trayItem.id, button.trayItem.title, tray.nameOf(button.trayItem)], "tray") : "color"
+      tint: tray.bar ? tray.bar.iconTintFor(iconStyle) : tray.foreground
     }
 
     MouseArea {

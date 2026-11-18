@@ -11,7 +11,7 @@ colors, font, and the clear, glassy or opaque background you picked for the
 top bar. Change the theme and it follows. (A transom is the horizontal bar
 across a window. This one sits across all of yours.)
 
-![The bar following eight Omarchy themes](media/themes.gif)
+![The bar following nine Omarchy themes, its icons in each theme's accent color](media/themes.gif)
 
 ## What you get
 
@@ -48,11 +48,16 @@ across a window. This one sits across all of yours.)
 
   <img src="media/bar-menu.png" alt="The bar menu" width="320">
 
-- **And:** auto-hide that gives windows the space back, monochrome or
-  theme-colored icons, emoji-free window titles, one bar per screen (or
-  just the primary), and every option in one JSON file.
+- **Icons in the theme's color, if you like.** Tray and quick launch icons
+  (and, if you want, the window buttons, all but the focused one) drawn in
+  the theme's accent color, or in gray, or in the text color to match
+  Omarchy's own widgets.
 
-  ![Icons in color, gray, and theme color](media/icon-styles.png)
+  ![Icons in color, gray, the theme's text color, and its accent](media/icon-styles.png)
+
+- **And:** auto-hide that gives windows the space back, emoji-free window
+  titles, one bar per screen (or just the primary), and every option in one
+  JSON file.
 
 ## Install
 
@@ -129,7 +134,9 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | Option | Default | What |
 |---|---|---|
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
-| `iconStyle` | `"color"` | App icons on the taskbar buttons, tray and quick launch: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of the theme's bar text color (follows theme changes). See "Monochrome icons". |
+| `iconStyle` | `"color"` | App icons: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. Which icons: `iconStyleOn`. See "Icon styles". |
+| `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
+| `iconStyleOn` | `{ "tray": true, "quickLaunch": true, "inactiveWindows": false, "activeWindow": false }` | Which icons the style applies to. Window buttons keep their colors by default; turn on `inactiveWindows` alone to leave only the focused window in color. |
 | `autohide` | `false` | Windows' "Automatically hide the taskbar". See "Auto-hide". |
 | `autohideDelay` | `600` | ms after the pointer leaves before it hides (0-10000) |
 | `reveal` | `"instant"` | How it comes and goes: `"instant"` or `"slide"` (a 150ms slide) |
@@ -154,7 +161,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
-| Icons: … | Cycles `iconStyle`: color → gray → theme color |
+| Icons: … | Cycles `iconStyle`: color → gray → theme color (which icons: `iconStyleOn` in the settings file) |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
 | ⤷ Combine: … | Cycles `combine`: never → when full → always |
@@ -436,19 +443,29 @@ only a 2px strip along the edge takes input (the window's input mask), so
 clicks everywhere else reach the windows. Each widget tells the bar whether
 one of its popups is open (`popupVisible`, read through `Service.popupOpen`).
 
-## Monochrome icons
+## Icon styles
 
-The bar option `iconStyle` (or the bar menu's "Icons" row) restyles every app
-icon on the bar: taskbar buttons, tray and quick launch. Omarchy's own
-widgets are already monochrome.
+The bar option `iconStyle` (or the bar menu's "Icons" row) restyles app
+icons. Omarchy's own widgets are already one color.
 
 - `"mono"`: grays.
-- `"themed"`: shades of the theme's bar text color, so icons change with the
-  theme.
-- Both squeeze each icon's shades into the bright half of the range on a dark
-  bar (the dark half on a light one), so dark icons such as Steam's stay
-  visible and busy ones keep their detail.
-- `iconStyleExceptions` keeps chosen apps in color.
+- `"themed"`: shades of one theme color, picked by `iconTint`. The default,
+  `"accent"`, is the theme's accent (blue on Tokyo Night, orange on Matte
+  Black, pink on Hardlight...), so icons change visibly with the theme.
+  `"text"` uses the bar's text color: the same color as Omarchy's widget
+  glyphs, for a quiet, all-matching bar.
+- **Which icons:** `iconStyleOn` switches the tray, quick launch, the
+  inactive window buttons and the active one separately. By default only the
+  tray and quick launch are restyled. Turn on `inactiveWindows` (and leave
+  `activeWindow` off) and the focused window's icon is the only one left in
+  color, so it stands out.
+- `iconStyleExceptions` keeps chosen apps in color everywhere.
+
+How: `shaders/tint.frag` turns each pixel's brightness into a shade of the
+color, from about 60% to 120% of it on a dark bar (darker shades on a light
+one), so dark icons such as Steam's stay visible and busy ones keep their
+detail. It's compiled to `tint.frag.qsb` (Qt's `qsb`, package
+`qt6-shadertools`, only needed to change the shader).
 
 Symbolic icons (made to be recolored) are always painted in the text color,
 whatever the style. Coding-agent windows (`org.omarchy.agent`, from
@@ -512,6 +529,7 @@ top bar runs, with its real panel, which opens upward.
 | `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |
 | `widgets/QuickLaunch.qml`, `QuickLaunchModel.js` | Quick launch: buttons, launching, its menu; the model parses `apps` and does pinning. |
 | `ui/AppIcon.qml` | An app icon that falls back through candidate images, in the bar's icon style. |
+| `shaders/tint.frag` (`.qsb`) | The icon tint shader for mono and themed, and its compiled form. |
 | `ui/WindowPreview.qml`, `ui/ThumbnailPopup.qml` | A live picture of a window, and the hover thumbnail built on it. |
 | `widgets/Tray.qml` | The system tray: icons, "^" flyout, app menus, pin/hide, drag. |
 | `widgets/OmarchyWidget.qml`, `ui/OmarchyBarApi.qml` | Hosting Omarchy's own widgets (see above). |

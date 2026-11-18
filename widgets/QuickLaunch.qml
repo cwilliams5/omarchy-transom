@@ -233,9 +233,9 @@ Item {
       width: launcher.iconSize
       height: launcher.iconSize
       sources: slotItem.button ? slotItem.button.icons : []
-      tint: launcher.bar ? launcher.bar.foreground : "white"
       iconStyle: launcher.bar && slotItem.button
-        ? launcher.bar.iconStyleFor([slotItem.button.item.app, slotItem.button.item.special, slotItem.button.name]) : "color"
+        ? launcher.bar.iconStyleFor([slotItem.button.item.app, slotItem.button.item.special, slotItem.button.name], "quickLaunch") : "color"
+      tint: launcher.bar ? launcher.bar.iconTintFor(iconStyle) : "white"
     }
 
     MouseArea {

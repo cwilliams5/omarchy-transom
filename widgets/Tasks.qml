@@ -455,8 +455,11 @@ Item {
           width: taskbar.iconSize
           height: taskbar.iconSize
           sources: taskbar.iconsFor(button.appId)
-          tint: taskbar.bar ? taskbar.bar.foreground : Commons.Color.foreground
-          iconStyle: taskbar.bar ? taskbar.bar.iconStyleFor([button.appId, taskbar.appName(button.appId)]) : "color"
+          // The active window's button and the others can be styled apart
+          // (iconStyleOn), e.g. only the active one left in color.
+          iconStyle: taskbar.bar
+            ? taskbar.bar.iconStyleFor([button.appId, taskbar.appName(button.appId)], button.active ? "activeWindow" : "inactiveWindows") : "color"
+          tint: taskbar.bar ? taskbar.bar.iconTintFor(iconStyle) : Commons.Color.foreground
         }
 
         // How many windows a combined button holds: a small number on the

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import qs.Commons as Commons
 
 // An app's icon on the bar (taskbar buttons, tray, quick launch).
 //
@@ -8,10 +9,16 @@ import Quickshell
 // file:// or image:// URL); the first one that loads is shown, so a missing
 // icon falls back to the next instead of a blank.
 //
-// iconStyle is the bar option of the same name: "color" shows the icon as
-// it is, "mono" in grays, "themed" in shades of tint (the bar's text color),
-// so it follows the theme. Symbolic icons ("-symbolic", made to be
-// recolored) are always painted in tint, as Omarchy's own tray does.
+// iconStyle (the bar options iconStyle and iconStyleOn decide it per icon):
+//   "color"   as it is
+//   "mono"    in grays
+//   "themed"  in shades of tint (the theme's accent, or its bar text color:
+//             the bar option iconTint), so it changes with the theme
+// Symbolic icons ("-symbolic", made to be recolored) are always filled with
+// tint, as Omarchy's own tray does.
+//
+// Mono and themed go through shaders/tint.frag: each pixel's brightness
+// becomes a shade of one color, lifted so dark icons (Steam's) stay visible.
 Item {
   id: icon
 
@@ -38,6 +45,10 @@ Item {
   readonly property url current: icon.tried < icon.candidates.length ? icon.candidates[icon.tried] : ""
   readonly property bool symbolic: String(current).split("?")[0].slice(-9) === "-symbolic"
   readonly property bool restyled: !symbolic && (iconStyle === "mono" || iconStyle === "themed")
+
+  // Shades go toward light on a dark bar, toward dark on a light one.
+  readonly property color barColor: Commons.Color.bar.background
+  readonly property bool darkBar: 0.2126 * barColor.r + 0.7152 * barColor.g + 0.0722 * barColor.b < 0.5
 
   // A theme icon name, a path or a URL, as something Image can load.
   function resolve(name) {
@@ -78,21 +89,23 @@ Item {
     }
   }
 
-  // Mono and themed: the colors taken out and every shade squeezed into the
-  // brighter part of the range on a dark bar (the darker part on a light
-  // one), so a dark icon (Steam's) stays visible and a busy one keeps its
-  // detail. Themed then tints it with the bar's text color.
-  MultiEffect {
-    anchors.fill: image
-    source: image
+  // Mono and themed: the same picture, drawn through the tint shader.
+  Image {
+    anchors.fill: parent
     visible: icon.restyled
-    saturation: -1
-    contrast: -0.45
-    brightness: icon.lightTint ? 0.225 : -0.225
-    colorization: icon.iconStyle === "themed" ? 1 : 0
-    colorizationColor: icon.tint
+    source: icon.restyled ? icon.current : ""
+    sourceSize: Qt.size(icon.width * 2, icon.height * 2)
+    fillMode: Image.PreserveAspectFit
+    asynchronous: true
+    smooth: true
+    mipmap: true
+    layer.enabled: icon.restyled
+    layer.effect: ShaderEffect {
+      // Mono: grays (white or black shades). Themed: shades of tint.
+      property color tint: icon.iconStyle === "themed" ? icon.tint : "white"
+      property real low: icon.iconStyle === "themed" ? (icon.darkBar ? 0.6 : 0.45) : (icon.darkBar ? 0.42 : 0.05)
+      property real high: icon.iconStyle === "themed" ? (icon.darkBar ? 1.2 : 0.95) : (icon.darkBar ? 1.0 : 0.5)
+      fragmentShader: Qt.resolvedUrl("../shaders/tint.frag.qsb")
+    }
   }
-
-  // A light text color means a dark bar, and the other way round.
-  readonly property bool lightTint: 0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b > 0.5
 }
