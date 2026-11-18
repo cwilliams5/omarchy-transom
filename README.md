@@ -8,7 +8,7 @@
 **A Windows-style taskbar for [Omarchy](https://omarchy.org):** start button,
 quick launch, this workspace's windows, tray, show desktop.
 
-![Transom on Omarchy's Monokai theme](media/hero.png)
+![Transom on Omarchy's Monokai theme, its icons in the theme's text color with the focused window's in color](media/hero-themed-text.png)
 
 A second bar along the bottom of every screen, for people who think in
 taskbars. It's as tall as Omarchy's top bar and dresses like it: theme
@@ -20,8 +20,16 @@ across a window. This one sits across all of yours.)
 
 ## What you get
 
-- **Taskbar buttons for this workspace's windows** (or this screen's, or
-  all), in the order you drag them into.
+- **Workspace aware.** The taskbar shows the windows on the workspace
+  you're looking at, so each workspace gets its own taskbar: switch
+  workspaces and the buttons switch with you. Prefer the whole screen, or
+  every window everywhere? One click in the bar menu ("Windows: this
+  workspace / this screen / all"). Windows you minimize stay with the
+  workspace they came from.
+
+  ![Switching between a workspace with 3 windows and one with 8](media/workspaces.gif)
+
+- **Taskbar buttons for those windows,** in the order you drag them into.
   - Click to focus, middle-click to close, scroll to step through windows.
   - Windows minimized with Super+M stay on their workspace's taskbar,
     dimmed, until you click them back.
