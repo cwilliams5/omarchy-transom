@@ -46,6 +46,7 @@ AnchoredPopup {
   readonly property var tray: Settings.parse(bar ? bar.entryFor("tray") : null, TrayModel.SETTINGS).settings
 
   readonly property string iconStyle: bar ? bar.iconStyle : "color"
+  readonly property string windowIconStyle: bar ? bar.windowIconStyle : "color"
   readonly property var iconStyles: ["color", "mono", "themed"]
   readonly property var iconStyleNames: ({ "color": "color", "mono": "gray", "themed": "theme color" })
   readonly property var combineModes: ["never", "full", "always"]
@@ -96,7 +97,8 @@ AnchoredPopup {
       onTriggered: menu.change("bar", { autohide: !checked })
     }
 
-    // Steps through the icon styles on each click.
+    // Steps through the icon styles on each click: app icons (the tray and
+    // quick launch), then window icons (the taskbar buttons).
     MenuItemRow {
       visible: menu.page === "main"
       text: "Icons: " + menu.iconStyleNames[menu.iconStyle]
@@ -105,6 +107,17 @@ AnchoredPopup {
       onTriggered: {
         var styles = menu.iconStyles
         menu.change("bar", { iconStyle: styles[(styles.indexOf(menu.iconStyle) + 1) % styles.length] })
+      }
+    }
+
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Window icons: " + menu.iconStyleNames[menu.windowIconStyle]
+      checkColumn: true
+      hasChildren: true
+      onTriggered: {
+        var styles = menu.iconStyles
+        menu.bar.setWindowIconStyle(styles[(styles.indexOf(menu.windowIconStyle) + 1) % styles.length])
       }
     }
 
@@ -189,16 +202,7 @@ AnchoredPopup {
       text: "Quick launch"
       checkColumn: true
       checked: menu.quickLaunchOn
-      onTriggered: {
-        if (menu.quickLaunchOn) {
-          menu.bar.setWidgetEnabled("quicklaunch", false)
-          return
-        }
-        var entry = menu.bar.entryFor("quicklaunch")
-        var changes = { enabled: undefined }
-        if (!entry || !entry.apps) changes.apps = ["browser", "terminal"]
-        menu.change("quicklaunch", changes)
-      }
+      onTriggered: menu.bar.setQuickLaunchEnabled(!menu.quickLaunchOn)
     }
 
     MenuItemRow {

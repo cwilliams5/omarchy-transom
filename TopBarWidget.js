@@ -56,6 +56,18 @@ var ICON_STYLES = [
   { value: "mono", label: "Gray" },
   { value: "themed", label: "Theme color" }
 ]
+// The bar option iconTint: which theme color "themed" uses.
+var TINTS = [
+  { value: "accent", label: "Accent" },
+  { value: "text", label: "Text" }
+]
+
+// The tray slider's range (the tray setting maxIcons allows 0-50; the
+// slider stretches to a larger saved value rather than clamping it).
+var MAX_ICONS_SLIDER = 12
+function sliderMax(maxIcons) {
+  return Math.max(MAX_ICONS_SLIDER, Math.round(Number(maxIcons) || 0))
+}
 
 if (typeof module !== "undefined") {
   module.exports = {
@@ -65,6 +77,9 @@ if (typeof module !== "undefined") {
     status: status,
     WINDOWS: WINDOWS,
     COMBINE: COMBINE,
-    ICON_STYLES: ICON_STYLES
+    ICON_STYLES: ICON_STYLES,
+    TINTS: TINTS,
+    MAX_ICONS_SLIDER: MAX_ICONS_SLIDER,
+    sliderMax: sliderMax
   }
 }

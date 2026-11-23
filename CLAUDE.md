@@ -21,10 +21,11 @@ Since 0.1.0: windows tagged `skip-taskbar` get no button unless minimized
 
 In progress, for 0.2.0, in this order:
 1. The optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
-   and its main settings in a dropdown. Built on branch `topbar-widget`
-   and tested live through commands (hide/show, the widget removed while
-   hidden, the icon switched off, the dropdown opened); waiting for Cody to
-   try the clicks, the keyboard and the "Bar menu…" button.
+   and a two-column dropdown with nearly every bar-menu setting. Built on
+   branch `topbar-widget`, tested live by command and by Cody (clicks, the
+   bar menu button, removing it). Cody asked for the fuller dropdown and for
+   window icons to get their own style (`windowIconStyle`, a "Window icons"
+   row in the bar menu); he'll trim the dropdown from there.
 2. A strict review of the whole plugin (fresh reviewers, fixes with
    regression tests).
 3. Release 0.2.0 and a "Plugin verification" request (the maintainer
@@ -130,6 +131,8 @@ BarMenu.qml           the right-click menu on empty bar space
 BarWidget.qml         the optional top-bar widget: icon + dropdown
 TopBarWidget.js       its pure logic: when the taskbar may hide, choices
 Registry.js           hands the service to the widget on non-Omarchy bars
+IconStyle.js          which style each app icon gets: app icons (tray,
+                      quick launch) and window icons apart
 defaults.json         the release layout (plain on purpose)
 Settings.js           checks a layout entry against a widget's spec
 TasksModel.js         taskbar settings spec + pure logic (which windows,
@@ -342,7 +345,7 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 ## Working on it
 
-- **Tests:** `node tests/run.js` (91 tests, about a second, nothing on
+- **Tests:** `node tests/run.js` (102 tests, about a second, nothing on
   screen). They cover the pure `.js` logic only; QML is checked when the
   shell loads it, so watch the log after a restart. Run before every commit.
 - **Try a change live:** commit on a branch in the working copy, then

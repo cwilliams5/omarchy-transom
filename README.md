@@ -178,9 +178,10 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 |---|---|---|
 | `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar widget is on a bar (its switch is the way back). See "Top-bar widget". |
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
-| `iconStyle` | `"color"` | App icons: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. Which icons: `iconStyleOn`. See "Icon styles". |
+| `iconStyle` | `"color"` | App icons (the tray and quick launch): `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. See "Icon styles". |
+| `windowIconStyle` | `"color"` | Window icons (the taskbar buttons), the same three styles. The focused window's button keeps its color unless `iconStyleOn.activeWindow`. |
 | `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
-| `iconStyleOn` | `{ "tray": true, "quickLaunch": true, "inactiveWindows": false, "activeWindow": false }` | Which icons the style applies to. Window buttons keep their colors by default; turn on `inactiveWindows` alone to leave only the focused window in color. |
+| `iconStyleOn` | `{ "tray": true, "quickLaunch": true, "inactiveWindows": false, "activeWindow": false }` | `false` keeps the tray or quick launch in color on its own; `activeWindow: true` restyles the focused window's button too. `inactiveWindows` is the 0.1.0 way to style window buttons (see "Icon styles"). |
 | `autohide` | `false` | Windows' "Automatically hide the taskbar". See "Auto-hide". |
 | `autohideDelay` | `600` | ms after the pointer leaves before it hides (0-10000) |
 | `reveal` | `"instant"` | How it comes and goes: `"instant"` or `"slide"` (a 150ms slide) |
@@ -205,7 +206,8 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
-| Icons: … | Cycles `iconStyle`: color → gray → theme color (which icons: `iconStyleOn` in the settings file) |
+| Icons: … | Cycles `iconStyle` (the tray and quick launch): color → gray → theme color |
+| Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
 | ⤷ Combine: … | Cycles `combine`: never → when full → always |
@@ -231,7 +233,7 @@ as its bottom rail (left out while the taskbar is hidden).
 
 | Click | Does |
 |---|---|
-| Left or right | A dropdown: **Show the taskbar**, then Automatically hide the taskbar, Lock the taskbar, Windows, Combine buttons, Window thumbnails, Icons, Show on all displays (with more than one screen), and buttons for the bar menu and the settings file. Keyboard: j/k or the arrows, Enter. |
+| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen). Taskbar buttons (on/off): icons only, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
 | Middle | Show or hide the taskbar |
 
 **Hiding the taskbar** (the bar option `visible`) takes it off every
@@ -540,8 +542,17 @@ one of its popups is open (`popupVisible`, read through `Service.popupOpen`).
 
 ## Icon styles
 
-The bar option `iconStyle` (or the bar menu's "Icons" row) restyles app
-icons. Omarchy's own widgets are already one color.
+Two sets of icons, each with its own style, from the bar menu ("Icons" and
+"Window icons") or the top-bar widget's dropdown:
+
+- **App icons** (the tray and quick launch): the bar option `iconStyle`.
+- **Window icons** (the taskbar buttons): the bar option `windowIconStyle`.
+  The focused window's button keeps its color so it stands out, unless
+  `iconStyleOn.activeWindow` is on ("Focused window in color" in the
+  dropdown).
+
+Each is `"color"` (as they are), `"mono"` or `"themed"`. Omarchy's own
+widgets are already one color.
 
 - `"mono"`: grays.
 - `"themed"`: shades of one theme color, picked by `iconTint`. The default,
@@ -549,11 +560,12 @@ icons. Omarchy's own widgets are already one color.
   Black, pink on Hardlight...), so icons change visibly with the theme.
   `"text"` uses the bar's text color: the same color as Omarchy's widget
   glyphs, for a quiet, all-matching bar.
-- **Which icons:** `iconStyleOn` switches the tray, quick launch, the
-  inactive window buttons and the active one separately. By default only the
-  tray and quick launch are restyled. Turn on `inactiveWindows` (and leave
-  `activeWindow` off) and the focused window's icon is the only one left in
-  color, so it stands out.
+- **Leaving some out:** `iconStyleOn` keeps the tray (`"tray": false`) or
+  quick launch (`"quickLaunch": false`) in color on its own, and
+  `"activeWindow": true` restyles the focused window's button too. Its
+  `inactiveWindows` is how Transom 0.1.0 styled window buttons (with
+  `iconStyle`); it still works while `windowIconStyle` is `"color"`, and
+  picking a window style from a menu turns it off.
 - `iconStyleExceptions` keeps chosen apps in color everywhere.
 
 How: `shaders/tint.frag` turns each pixel's brightness into a shade of the
@@ -621,6 +633,7 @@ top bar runs, with its real panel, which opens upward.
 | `BarWindow.qml` | One screen's bar: background, the three sections, loading widgets into them, the right-click on empty space. |
 | `BarMenu.qml` | The bar's right-click menu. |
 | `BarWidget.qml`, `TopBarWidget.js`, `Registry.js` | The optional top-bar widget: its icon and dropdown; when the taskbar may be hidden and the dropdown's choices; how the widget finds the service on a bar that isn't Omarchy's. |
+| `IconStyle.js` | Which style each app icon gets (`iconStyle`, `windowIconStyle`, `iconStyleOn`, exceptions). |
 | `ui/CrossbarIcon.qml` | The Transom mark, drawn for the top-bar widget. |
 | `defaults.json` | The layout and settings used until `~/.config/omarchy/transom.json` exists. |
 | `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |

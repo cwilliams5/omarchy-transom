@@ -8,6 +8,7 @@ const R = require(path.join(__dirname, "..", "Reorder.js"))
 const Q = require(path.join(__dirname, "..", "QuickLaunchModel.js"))
 const I = require(path.join(__dirname, "..", "IconSource.js"))
 const W = require(path.join(__dirname, "..", "TopBarWidget.js"))
+const IS = require(path.join(__dirname, "..", "IconStyle.js"))
 
 let failures = 0
 function test(name, fn) {
@@ -737,6 +738,92 @@ test("manifest: the widget is optional and the service is still its own kind", (
   assert.strictEqual(manifest.barWidget.allowMultiple, false)
   const showIcon = manifest.barWidget.schema.find((field) => field.key === "showIcon")
   assert.ok(showIcon && showIcon.defaultValue === true && manifest.barWidget.defaults.showIcon === true)
+})
+
+// ------------------------------------------------------------ icon styles
+
+const iconSettings = (extra) => Object.assign({
+  iconStyle: "color", windowIconStyle: "color", iconStyleExceptions: [],
+  iconStyleOn: { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false }
+}, extra)
+const styles = (settings) => ["tray", "quickLaunch", "inactiveWindows", "activeWindow"].map((target) => IS.styleFor(settings, target, ["app"]))
+
+test("icon styles: everything in color by default", () => {
+  assert.deepStrictEqual(styles(iconSettings()), ["color", "color", "color", "color"])
+})
+
+test("icon styles: app icons and window icons are styled apart", () => {
+  assert.deepStrictEqual(styles(iconSettings({ iconStyle: "themed" })), ["themed", "themed", "color", "color"])
+  assert.deepStrictEqual(styles(iconSettings({ windowIconStyle: "themed" })), ["color", "color", "themed", "color"])
+  assert.deepStrictEqual(styles(iconSettings({ iconStyle: "mono", windowIconStyle: "themed" })), ["mono", "mono", "themed", "color"])
+})
+
+test("icon styles: the focused window keeps its color unless activeWindow is on", () => {
+  const on = { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: true }
+  assert.deepStrictEqual(styles(iconSettings({ windowIconStyle: "mono", iconStyleOn: on })), ["color", "color", "mono", "mono"])
+})
+
+test("icon styles: tray or quick launch can stay in color alone", () => {
+  const on = { tray: false, quickLaunch: true, inactiveWindows: false, activeWindow: false }
+  assert.deepStrictEqual(styles(iconSettings({ iconStyle: "themed", iconStyleOn: on })), ["color", "themed", "color", "color"])
+})
+
+test("icon styles: exceptions stay in color in both sets", () => {
+  const settings = iconSettings({ iconStyle: "themed", windowIconStyle: "mono", iconStyleExceptions: ["Spot"] })
+  assert.strictEqual(IS.styleFor(settings, "tray", ["spotify"]), "color")
+  assert.strictEqual(IS.styleFor(settings, "inactiveWindows", ["com.spotify.Client"]), "color")
+  assert.strictEqual(IS.styleFor(settings, "inactiveWindows", ["firefox"]), "mono")
+})
+
+test("icon styles: 0.1.0's iconStyleOn.inactiveWindows still styles window buttons", () => {
+  const legacy = (active) => iconSettings({ iconStyle: "themed", iconStyleOn: { tray: true, quickLaunch: true, inactiveWindows: true, activeWindow: active } })
+  assert.deepStrictEqual(styles(legacy(false)), ["themed", "themed", "themed", "color"])
+  assert.deepStrictEqual(styles(legacy(true)), ["themed", "themed", "themed", "themed"])
+  assert.strictEqual(IS.windowStyle(legacy(false)), "themed", "the menus show what the buttons get")
+  // activeWindow alone never styled anything a menu would show.
+  assert.strictEqual(IS.styleFor(iconSettings({ iconStyle: "mono", iconStyleOn: { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: true } }), "activeWindow", []), "color")
+})
+
+test("icon styles: unknown styles and targets fall back safely", () => {
+  assert.strictEqual(IS.styleFor(iconSettings({ iconStyle: "sparkly" }), "tray", []), "color")
+  assert.strictEqual(IS.styleFor(iconSettings({ iconStyle: "mono" }), "", []), "mono", "no target: the app style")
+  assert.strictEqual(IS.styleFor(iconSettings({ iconStyle: "mono" }), "constructor", []), "color")
+})
+
+test("icon styles: picking a window style clears the older setting", () => {
+  const legacy = iconSettings({ iconStyle: "themed", iconStyleOn: { tray: true, quickLaunch: false, inactiveWindows: true, activeWindow: true } })
+  const changes = IS.windowStyleChanges(legacy, "color")
+  assert.ok("windowIconStyle" in changes && changes.windowIconStyle === undefined, "color removes the key")
+  assert.deepStrictEqual(changes.iconStyleOn, { tray: true, quickLaunch: false, inactiveWindows: false, activeWindow: true })
+  const after = iconSettings({ iconStyle: "themed", iconStyleOn: changes.iconStyleOn })
+  assert.strictEqual(IS.windowStyle(after), "color")
+  const plain = IS.windowStyleChanges(iconSettings(), "mono")
+  assert.deepStrictEqual(Object.keys(plain), ["windowIconStyle"], "iconStyleOn is left alone when there's nothing to clear")
+  assert.strictEqual(plain.windowIconStyle, "mono")
+})
+
+test("icon styles: keeping the focused window in color", () => {
+  assert.strictEqual(IS.focusedColorChanges(iconSettings(), false).iconStyleOn.activeWindow, true)
+  assert.strictEqual(IS.focusedColorChanges(iconSettings(), true).iconStyleOn.activeWindow, false)
+  assert.strictEqual(IS.focusedColorChanges(iconSettings(), true).iconStyleOn.tray, true)
+})
+
+test("icon styles: both bar options offer the same styles as IconStyle.js", () => {
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  for (const option of ["iconStyle", "windowIconStyle"]) {
+    const choices = JSON.parse(service.match(new RegExp("\\n    " + option + ': \\{ default: "color", choices: (\\[[^\\]]*\\])'))[1])
+    assert.deepStrictEqual(choices, IS.STYLES, option)
+  }
+})
+
+test("top-bar widget: theme color choices are iconTint's, and the slider fits any saved count", () => {
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  const tints = JSON.parse(service.match(/iconTint: \{ default: "accent", choices: (\[[^\]]*\])/)[1])
+  assert.deepStrictEqual(W.TINTS.map((choice) => choice.value), tints)
+  assert.strictEqual(W.sliderMax(5), W.MAX_ICONS_SLIDER)
+  assert.strictEqual(W.sliderMax(30), 30, "a larger saved value stretches the slider instead of being cut")
+  assert.strictEqual(W.sliderMax("x"), W.MAX_ICONS_SLIDER)
+  assert.ok(T.SETTINGS.maxIcons.max >= W.MAX_ICONS_SLIDER && T.SETTINGS.maxIcons.min === 0)
 })
 
 if (failures) {

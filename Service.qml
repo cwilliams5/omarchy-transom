@@ -12,6 +12,7 @@ import "Reorder.js" as Reorder
 import "QuickLaunchModel.js" as QuickLaunchModel
 import "TopBarWidget.js" as TopBarWidget
 import "Registry.js" as Registry
+import "IconStyle.js" as IconStyle
 
 // Transom: a Windows-style taskbar along the bottom edge of every screen. It
 // takes its look from Omarchy's top bar (theme colors, font, height, and the
@@ -177,13 +178,19 @@ Item {
     // while that widget is on a bar: see taskbarShown.
     visible: { default: true },
     // App icons: as they are, in grays, or in shades of the theme's color.
+    // App icons (the tray and quick launch): as they are, in grays, or in
+    // shades of the theme's color. IconStyle.js decides each icon's style.
     iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
+    // Window icons (the taskbar buttons), the same three styles. The
+    // focused window's button keeps its color unless iconStyleOn.activeWindow.
+    windowIconStyle: { default: "color", choices: ["color", "mono", "themed"] },
     // The theme color "themed" uses: its accent (changes most visibly with
     // the theme) or its bar text color (matches Omarchy's widget glyphs).
     iconTint: { default: "accent", choices: ["accent", "text"] },
-    // Which icons the style applies to. Window buttons keep their colors
-    // unless switched on here; the active window can stay in color while
-    // the others are restyled.
+    // tray / quickLaunch: false keeps that one in color. activeWindow: the
+    // focused window's button takes windowIconStyle too. inactiveWindows is
+    // the older way to style window buttons (with iconStyle), still read
+    // while windowIconStyle is "color".
     iconStyleOn: {
       default: { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false },
       hint: "an object like {\"tray\": true, \"quickLaunch\": true, \"inactiveWindows\": false, \"activeWindow\": false}",
@@ -224,23 +231,24 @@ Item {
   readonly property var settings: parsedBarSettings.settings
   readonly property bool locked: settings.locked === true
   readonly property string iconStyle: settings.iconStyle
+  // What window buttons get, older settings included (for the menus).
+  readonly property string windowIconStyle: IconStyle.windowStyle(settings)
 
   // The style for one app's icon, given where it is (target: "tray",
-  // "quickLaunch", "inactiveWindows" or "activeWindow", see iconStyleOn) and
-  // its ids and names: the bar's, unless that place is left out or a name is
-  // in iconStyleExceptions.
+  // "quickLaunch", "inactiveWindows" or "activeWindow") and its ids and
+  // names, for iconStyleExceptions. IconStyle.styleFor has the rules.
   function iconStyleFor(names, target) {
-    if (root.iconStyle === "color") return "color"
-    if (target && root.settings.iconStyleOn[target] !== true) return "color"
-    var exceptions = root.settings.iconStyleExceptions
-    var list = Settings.toList(names) || []
-    for (var i = 0; i < exceptions.length; i++) {
-      var wanted = String(exceptions[i]).toLowerCase()
-      for (var j = 0; j < list.length; j++) {
-        if (String(list[j] || "").toLowerCase().indexOf(wanted) >= 0) return "color"
-      }
-    }
-    return root.iconStyle
+    return IconStyle.styleFor(root.settings, target, Settings.toList(names) || [])
+  }
+
+  // Saves a new style for window buttons (from the menus).
+  function setWindowIconStyle(style) {
+    root.updateWidget("bar", IconStyle.windowStyleChanges(root.settings, style))
+  }
+
+  // Saves whether the focused window's button keeps its color.
+  function setFocusedWindowColor(keep) {
+    root.updateWidget("bar", IconStyle.focusedColorChanges(root.settings, keep))
   }
 
   // The color an icon of this style is drawn in: for themed, the theme's
@@ -466,6 +474,19 @@ Item {
 
   function setWidgetEnabled(id, on) {
     root.updateWidget(id, { enabled: on ? undefined : false })
+  }
+
+  // Quick launch on or off. Turned on for the first time, it starts with the
+  // browser and terminal.
+  function setQuickLaunchEnabled(on) {
+    if (!on) {
+      root.setWidgetEnabled("quicklaunch", false)
+      return
+    }
+    var entry = root.entryFor("quicklaunch")
+    var changes = { enabled: undefined }
+    if (!entry || !entry.apps) changes.apps = ["browser", "terminal"]
+    root.updateWidget("quicklaunch", changes)
   }
 
   // Quick launch, from the taskbar buttons' menu: is the app with this
