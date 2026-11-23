@@ -34,6 +34,11 @@ var SETTINGS = {
 // left, as omarchy-minimized-from-<id>.
 var MINIMIZED_WORKSPACE = "special:minimized"
 var FROM_TAG = /^omarchy-minimized-from-(-?\d+)\*?$/
+// A window that asks to be left off taskbars. Hyprland has no such
+// convention of its own: Legato tags its video window with it, and a rule
+// of your own can tag anything (`tag = "+skip-taskbar"`). A tag a window
+// rule set reads back with a trailing "*".
+var SKIP_TAG = /^skip-taskbar\*?$/
 
 // A list from Hyprland IPC data as a plain array. Quickshell can hand nested
 // lists over as Qt sequence types, which Array.isArray rejects but which
@@ -55,6 +60,15 @@ function minimizedFrom(tags) {
     if (match) return Number(match[1])
   }
   return null
+}
+
+// Whether a window's tags ask taskbars to leave it out.
+function skipsTaskbar(tags) {
+  var list = toList(tags)
+  for (var i = 0; i < list.length; i++) {
+    if (SKIP_TAG.test(String(list[i]))) return true
+  }
+  return false
 }
 
 // Hyprland's IPC writes addresses as 0x…; Quickshell sometimes drops the 0x.
@@ -96,7 +110,9 @@ function describe(toplevel) {
 //            exists (Hyprland drops empty ones) shows on every screen.
 // all:       every window, plus every minimized one.
 // Dialogs (windows with a parent), unmapped and hidden windows never show,
-// nor does anything on other special workspaces (scratchpad, agent console).
+// nor does anything on other special workspaces (scratchpad, agent console),
+// nor a window tagged skip-taskbar (a picture-in-picture video, say) unless
+// it was minimized, so it can still be brought back.
 function belongsTo(window, view) {
   if (!window || !window.address || window.hasParent) return false
   if (window.mapped === false || window.hidden === true) return false
@@ -112,6 +128,7 @@ function belongsTo(window, view) {
     return from === view.workspaceId
   }
   if (name.indexOf("special:") === 0) return false
+  if (skipsTaskbar(window.tags)) return false
   if (mode === "all") return true
   if (mode === "monitor") return onMonitor.indexOf(window.workspaceId) >= 0
   return window.workspaceId === view.workspaceId
@@ -297,6 +314,7 @@ if (typeof module !== "undefined") {
     minimizedFrom: minimizedFrom,
     normalizeAddress: normalizeAddress,
     belongsTo: belongsTo,
+    skipsTaskbar: skipsTaskbar,
     applyOrder: applyOrder,
     pruneOrder: pruneOrder,
     scrollTarget: scrollTarget,

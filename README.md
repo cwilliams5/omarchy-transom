@@ -229,6 +229,15 @@ minimized on workspace 1 shows on workspace 1's taskbar only.
 | Hover | Full title in a tooltip, when it's cut off or hidden |
 | Super+M | Minimize the active window, on any workspace (with the Super+M line from Install, which runs `./minimize`) |
 
+A window tagged `skip-taskbar` gets no button unless it's minimized (so it
+can still be brought back). Hyprland has no "skip taskbar" flag of its own;
+Legato tags its picture-in-picture video window this way, and a rule of
+your own can tag any app, in your Hyprland config:
+
+```lua
+o.window("^my-overlay-app$", { tag = "+skip-taskbar" })
+```
+
 Buttons are about 180px with icon and title. They shrink evenly when they
 don't all fit, then go icon-only. Titles are cut off with "…" and never
 scroll. The row is centered on the screen. Windows asking for attention get

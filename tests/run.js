@@ -193,6 +193,20 @@ test("workspace mode: this workspace's windows and those minimized from it", () 
   assert.ok(!M.belongsTo(minimizedFrom(2), view()))
 })
 
+test("a window tagged skip-taskbar gets no button, in any mode, unless minimized", () => {
+  // Legato's video window: the tag set by a window rule reads back with "*".
+  for (const tags of [["skip-taskbar*"], ["omarchy-floating-workspace", "skip-taskbar"]]) {
+    for (const mode of ["workspace", "monitor", "all"]) assert.ok(!M.belongsTo(win({ tags }), view({ mode })), mode)
+  }
+  assert.ok(M.belongsTo(win({ tags: ["skip-taskbar-not", "no-skip-taskbar"] }), view()))
+  // Minimized, it still shows, or it couldn't be brought back.
+  const minimized = win({ workspaceId: -97, workspaceName: "special:minimized", tags: ["omarchy-minimized-from-1", "skip-taskbar*"] })
+  assert.ok(M.belongsTo(minimized, view()))
+  // Qt sequences, as lastIpcObject hands tags over.
+  assert.ok(M.skipsTaskbar({ length: 1, 0: "skip-taskbar*" }))
+  assert.ok(!M.skipsTaskbar(undefined))
+})
+
 test("monitor mode: every workspace on this screen", () => {
   const v = view({ mode: "monitor" })
   assert.ok(M.belongsTo(win({ workspaceId: 2, workspaceName: "2" }), v))
