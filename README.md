@@ -660,6 +660,9 @@ their id in a section (see "Omarchy's own widgets").
 
 ## Developing
 
+`CLAUDE.md` has the maintainer's notes: the rules and why they exist, the
+platform facts Transom depends on, and how to test it live.
+
 - **Tests:** `node tests/run.js` covers the pure logic (`*.js`).
 - **Clicking and dragging from a script:** `dev/vclick.py` drives the pointer
   through Wayland's virtual-pointer protocol (Python only).
@@ -700,9 +703,12 @@ their id in a section (see "Omarchy's own widgets").
 - **Dispatch syntax** is Hyprland's Lua API (`hl.dsp.window.move({ … })`).
   Copy forms from `/usr/share/omarchy/default/hypr/` and Omarchy's dock
   (`/usr/share/omarchy/shell/plugins/dock/Dock.qml`).
-- **This folder is the git repo** (`cwilliams5/omarchy-transom`): edit it in
-  place, restart the shell, commit and push here. Your settings
-  (`~/.config/omarchy/transom.json`) live outside it.
+- **Work in a clone of the repo, not in the installed copy.**
+  `omarchy plugin update` only fast-forwards, so a commit made inside
+  `~/.config/omarchy/plugins/io.github.cwilliams5.transom` blocks updates.
+  To try a branch live, fetch it into the installed copy (CLAUDE.md,
+  "Working on it", has the commands). Your settings
+  (`~/.config/omarchy/transom.json`) live outside both.
 
 ## Not built yet
 
