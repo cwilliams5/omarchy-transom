@@ -80,6 +80,9 @@ Transom is an Omarchy shell plugin (a service with its own bar).
 omarchy plugin add https://github.com/cwilliams5/omarchy-transom.git --enable
 ```
 
+It's also listed in the Omarchy plugin marketplace:
+[omarchyplugins.com](https://omarchyplugins.com/plugin.html?id=io.github.cwilliams5.transom).
+
 Then, optionally:
 
 - **Put Omarchy's widgets on it:** right-click the bar, "Omarchy widgets",
@@ -220,11 +223,11 @@ minimized on workspace 1 shows on workspace 1's taskbar only.
 |---|---|
 | Left click | Focus the window, or bring a minimized one back. Clicking the window that's already active does nothing (or minimizes it: `activeClick`). |
 | Middle click | Close it |
-| Right click | Menu: New window, Minimize/Restore, Move to workspace 1–5, Float/Tile, Close |
+| Right click | Menu: New window, Pin to quick launch, Minimize/Restore, Move to workspace 1–5, Float/Tile, Close |
 | Scroll | Step to the next or previous window (minimized ones are skipped) |
 | Drag | Reorder. The order lasts until the shell restarts; new windows go last. |
 | Hover | Full title in a tooltip, when it's cut off or hidden |
-| Super+M | Minimize the active window, on any workspace (`~/.config/hypr/transom.lua` runs `./minimize`) |
+| Super+M | Minimize the active window, on any workspace (with the Super+M line from Install, which runs `./minimize`) |
 
 Buttons are about 180px with icon and title. They shrink evenly when they
 don't all fit, then go icon-only. Titles are cut off with "…" and never
@@ -596,8 +599,8 @@ top bar runs, with its real panel, which opens upward.
 3. Add its id to `widgets` in `Service.qml`.
 4. Put `{ "id": "<id>" }` in a section of `defaults.json` (and your own `transom.json`). To save settings from the widget, call `bar.updateWidget("<id>", { … })`.
 
-Omarchy's built-in widgets (like `omarchy.network`) can't be dropped in yet.
-They expect the top bar's internals; an adapter for them is being tried.
+Omarchy's own bar widgets (like `omarchy.network`) need none of this: put
+their id in a section (see "Omarchy's own widgets").
 
 ## How it fits with Omarchy
 
@@ -611,9 +614,9 @@ They expect the top bar's internals; an adapter for them is being tried.
   the tag `omarchy-minimized-from-<workspace id>`. Omarchy's own minimize (the
   titlebar button on floating workspaces) does the same, so the taskbar shows
   windows minimized either way.
-- **Omarchy's dock** (`omarchy.dock`) is turned off (2026-11-17), since this
-  taskbar replaces it. Back on: `omarchy plugin enable omarchy.dock`, then
-  `chezmoi re-add ~/.config/omarchy/shell.json`.
+- **Omarchy's dock** (`omarchy.dock`) does the same job as the taskbar, so
+  turn it off (`omarchy plugin disable omarchy.dock`; `enable` brings it
+  back).
 - **Popup traps** (both handled in `ui/AnchoredPopup.qml`):
   - Outside clicks close a popup through a `HyprlandFocusGrab`, set up like
     Omarchy's `PopupCard`. The grab arms 50ms after the popup appears, so the
@@ -695,7 +698,6 @@ They expect the top bar's internals; an adapter for them is being tried.
 
 - Very long tray menus don't scroll yet
 - Translations (menus and tooltips are English only)
-- A listing on omarchyplugins.com
 
 Decided against: flashing for attention, and a per-window audio indicator
 or volume slider. Omarchy's sound menu already has per-app volume, and
