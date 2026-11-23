@@ -207,6 +207,14 @@ test("a window tagged skip-taskbar gets no button, in any mode, unless minimized
   assert.ok(!M.skipsTaskbar(undefined))
 })
 
+test("window data is re-read after a pin too (a pinned window's tags can change with it)", () => {
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  const events = service.match(/refreshEvents: \[([^\]]*)\]/)[1]
+  for (const name of ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin"]) {
+    assert.ok(events.includes('"' + name + '"'), name)
+  }
+})
+
 test("monitor mode: every workspace on this screen", () => {
   const v = view({ mode: "monitor" })
   assert.ok(M.belongsTo(win({ workspaceId: 2, workspaceName: "2" }), v))

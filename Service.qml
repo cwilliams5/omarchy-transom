@@ -555,7 +555,9 @@ Item {
     onTriggered: Hyprland.refreshToplevels()
   }
 
-  readonly property var refreshEvents: ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen"]
+  // "pin": a pinned window's tags can change with it (Legato's video window
+  // is tagged skip-taskbar only while it's pinned).
+  readonly property var refreshEvents: ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin"]
 
   Connections {
     target: Hyprland

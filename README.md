@@ -231,8 +231,9 @@ minimized on workspace 1 shows on workspace 1's taskbar only.
 
 A window tagged `skip-taskbar` gets no button unless it's minimized (so it
 can still be brought back). Hyprland has no "skip taskbar" flag of its own;
-Legato tags its picture-in-picture video window this way, and a rule of
-your own can tag any app, in your Hyprland config:
+Legato tags its picture-in-picture video window this way while it's set to
+Always on top, and a rule of your own can tag any app, in your Hyprland
+config:
 
 ```lua
 o.window("^my-overlay-app$", { tag = "+skip-taskbar" })
