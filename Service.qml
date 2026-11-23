@@ -10,6 +10,8 @@ import "TasksModel.js" as TasksModel
 import "TrayModel.js" as TrayModel
 import "Reorder.js" as Reorder
 import "QuickLaunchModel.js" as QuickLaunchModel
+import "TopBarWidget.js" as TopBarWidget
+import "Registry.js" as Registry
 
 // Transom: a Windows-style taskbar along the bottom edge of every screen. It
 // takes its look from Omarchy's top bar (theme colors, font, height, and the
@@ -170,6 +172,10 @@ Item {
     maximizedRaiseWorkaround: { default: true },
     // "Lock the taskbar": nothing on the bar can be dragged.
     locked: { default: false },
+    // Show the taskbar. False hides it on every screen, from the top-bar
+    // widget (BarWidget.qml) or `omarchy-shell transom hide`, but only
+    // while that widget is on a bar: see taskbarShown.
+    visible: { default: true },
     // App icons: as they are, in grays, or in shades of the theme's color.
     iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
     // The theme color "themed" uses: its accent (changes most visibly with
@@ -243,6 +249,72 @@ Item {
   function iconTintFor(style) {
     if (style === "themed" && root.settings.iconTint === "accent") return Commons.Color.accent
     return root.foreground
+  }
+
+  // ------------------------------------------------------ top-bar widget
+
+  // Live copies of the optional top-bar widget (BarWidget.qml) using this
+  // service; each counts itself while it exists. That catches a copy on a
+  // bar other than Omarchy's, which the layout check below can't see.
+  property int widgetCopies: 0
+  // The widget is on a bar, icon shown or not, so a hidden taskbar has a
+  // way back: the widget's "Show the taskbar" switch.
+  readonly property bool widgetOnBar: widgetCopies > 0 || TopBarWidget.inLayout(root.topBarLayout)
+  // Drawn or not: the bar option visible, which only counts while the
+  // widget is on a bar. Take the widget off and a hidden taskbar comes back.
+  readonly property bool taskbarShown: TopBarWidget.taskbarShown(root.settings.visible, root.widgetOnBar)
+  onTaskbarShownChanged: if (!taskbarShown) root.dismissPopups()
+
+  // Once the widget has been seen on a bar and then goes, a saved "hidden"
+  // is cleared too, so putting the widget back later doesn't hide the
+  // taskbar by surprise. Never at start-up (the shell hands over its config
+  // a moment after the service starts), and only once the widget has
+  // stayed gone for a second (the top bar rebuilds its widgets now and then).
+  property bool widgetSeen: false
+  onWidgetOnBarChanged: {
+    if (widgetOnBar) {
+      root.widgetSeen = true
+      widgetGoneTimer.stop()
+    } else if (root.widgetSeen) {
+      widgetGoneTimer.restart()
+    }
+  }
+  Timer {
+    id: widgetGoneTimer
+    interval: 1000
+    onTriggered: {
+      if (root.widgetOnBar || root.settings.visible !== false) return
+      console.log("transom: the top-bar widget is gone, so the taskbar shows again")
+      root.updateWidget("bar", { visible: undefined })
+    }
+  }
+
+  // Shows or hides the taskbar and saves it. Hiding needs the widget on a
+  // bar; without it this says so and changes nothing.
+  function showTaskbar() {
+    if (root.settings.visible !== false) return "shown"
+    root.updateWidget("bar", { visible: undefined })
+    return "shown"
+  }
+  function hideTaskbar() {
+    if (!root.widgetOnBar) return "not hidden: put Transom's widget on the top bar first (its \"Show the taskbar\" switch brings the taskbar back)"
+    if (root.settings.visible !== false) root.updateWidget("bar", { visible: false })
+    return "hidden"
+  }
+  function toggleTaskbar() {
+    return root.taskbarShown ? root.hideTaskbar() : root.showTaskbar()
+  }
+
+  // Opens the bar's right-click menu (BarMenu.qml) from the top-bar widget,
+  // on the bar of the screen named, or the first bar.
+  signal barMenuRequested(string screenName)
+  function openBarMenu(screenName) {
+    if (!root.taskbarShown) return
+    var screens = Settings.toList(root.barScreens) || []
+    if (screens.length === 0) return
+    var name = String(screens[0].name)
+    for (var i = 0; i < screens.length; i++) if (String(screens[i].name) === String(screenName || "")) name = String(screens[i].name)
+    root.barMenuRequested(name)
   }
 
   // Omarchy's default coding agent (omarchy default agent <name>), for its
@@ -567,7 +639,11 @@ Item {
     }
   }
 
-  Component.onCompleted: Hyprland.refreshToplevels()
+  Component.onCompleted: {
+    Registry.service = root
+    Hyprland.refreshToplevels()
+  }
+  Component.onDestruction: if (Registry.service === root) Registry.service = null
 
   // The taskbar's window order for the session, as window addresses, set by
   // dragging buttons. Shared by every screen's taskbar; new windows go last.
@@ -635,6 +711,14 @@ Item {
       root.updateWidget(id, parsed)
       return JSON.stringify(id === "bar" ? root.layout.bar : root.entryFor(id))
     }
+
+    // Shows, hides or toggles the taskbar, as the top-bar widget's switch
+    // does (for a key binding). Hiding needs that widget on a bar, icon
+    // shown or not: it's the way back.
+    //   omarchy-shell transom toggle
+    function show(): string { return root.showTaskbar() }
+    function hide(): string { return root.hideTaskbar() }
+    function toggle(): string { return root.toggleTaskbar() }
 
     // Omarchy's bar widgets that can go on this bar, and where each is now.
     //   omarchy-shell transom widgets

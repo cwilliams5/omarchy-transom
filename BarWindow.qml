@@ -33,7 +33,9 @@ PanelWindow {
     return false
   }
 
-  visible: !!bar && !bar.hidden && !underFullscreen
+  // Hidden too while the user has hidden the taskbar (bar option visible,
+  // from the top-bar widget), and then reserves no space either.
+  visible: !!bar && bar.taskbarShown && !bar.hidden && !underFullscreen
 
   anchors {
     bottom: true
@@ -154,6 +156,17 @@ PanelWindow {
     id: barMenu
     bar: window.bar
     panel: window
+  }
+
+  // The top-bar widget's "Bar menu" button: the menu opens in the middle of
+  // this screen's bar (Service.openBarMenu picks the screen).
+  Connections {
+    target: window.bar
+    function onBarMenuRequested(screenName) {
+      if (!window.screen || String(window.screen.name) !== screenName) return
+      menuAnchor.x = window.width / 2
+      barMenu.show(menuAnchor)
+    }
   }
 
   // Everything the bar draws. Auto-hidden, it moves below the edge.

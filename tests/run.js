@@ -7,6 +7,7 @@ const T = require(path.join(__dirname, "..", "TrayModel.js"))
 const R = require(path.join(__dirname, "..", "Reorder.js"))
 const Q = require(path.join(__dirname, "..", "QuickLaunchModel.js"))
 const I = require(path.join(__dirname, "..", "IconSource.js"))
+const W = require(path.join(__dirname, "..", "TopBarWidget.js"))
 
 let failures = 0
 function test(name, fn) {
@@ -675,6 +676,67 @@ test("icon sources: names, paths and ~ paths resolve locally", () => {
   assert.strictEqual(I.resolve("~/icons/x.png", fakeIconPath, "/home/me"), "file:///home/me/icons/x.png")
   assert.strictEqual(I.resolve("weird name!", fakeIconPath, "/h"), "")
   assert.strictEqual(I.resolve("", fakeIconPath, "/h"), "")
+})
+
+// ------------------------------------------------------- top-bar widget
+
+test("top-bar widget: found in Omarchy's bar layout as an id or an entry", () => {
+  assert.ok(W.inLayout({ right: ["omarchy.clock", W.PLUGIN_ID] }))
+  assert.ok(W.inLayout({ left: [], right: [{ id: W.PLUGIN_ID }] }))
+  assert.ok(W.inLayout({ tray: [{ id: W.PLUGIN_ID, showIcon: false }] }), "a hidden icon still counts: its switch is in the bar settings")
+  assert.ok(!W.inLayout({ right: [{ id: "omarchy.clock" }, "io.github.cwilliams5.latch"] }))
+  assert.ok(!W.inLayout({ right: [{ id: W.PLUGIN_ID + ".extra" }] }))
+})
+
+test("top-bar widget: odd layouts are read safely", () => {
+  for (const layout of [null, undefined, "x", 3, {}, { right: "x" }, { right: null }, { right: [null, 7, {}] }, { constructor: [] }, { right: [{ id: { toString() { return W.PLUGIN_ID } } }] }]) {
+    assert.strictEqual(W.inLayout(layout), false, JSON.stringify(layout))
+  }
+  // A Qt sequence (indexable, with a length, not an Array).
+  assert.ok(W.inLayout({ right: { length: 1, 0: { id: W.PLUGIN_ID } } }))
+})
+
+test("taskbar hides only while the widget is on a bar (its switch is the way back)", () => {
+  assert.strictEqual(W.taskbarShown(true, true), true)
+  assert.strictEqual(W.taskbarShown(undefined, true), true)
+  assert.strictEqual(W.taskbarShown(false, true), false)
+  assert.strictEqual(W.taskbarShown(false, false), true, "no widget anywhere: never hidden")
+  assert.strictEqual(W.taskbarShown(true, false), true)
+})
+
+test("top-bar widget: status line", () => {
+  assert.strictEqual(W.status(false, true), "Taskbar hidden")
+  assert.strictEqual(W.status(true, false), "Taskbar shown")
+  assert.ok(/bottom/.test(W.status(true, true)))
+})
+
+test("top-bar widget: its choices are the settings' own values", () => {
+  const values = (list) => list.map((choice) => choice.value)
+  assert.deepStrictEqual(values(W.WINDOWS), M.SETTINGS.windows.choices)
+  assert.deepStrictEqual(values(W.COMBINE), M.SETTINGS.combine.choices)
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  const iconStyles = JSON.parse(service.match(/iconStyle: \{ default: "color", choices: (\[[^\]]*\])/)[1])
+  assert.deepStrictEqual(values(W.ICON_STYLES), iconStyles)
+  for (const list of [W.WINDOWS, W.COMBINE, W.ICON_STYLES]) {
+    for (const choice of list) assert.ok(typeof choice.label === "string" && choice.label !== "")
+  }
+})
+
+test("the bar option visible exists and defaults to shown", () => {
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  assert.ok(/\n    visible: \{ default: true \},/.test(service))
+  assert.ok(/visible: !!bar && bar\.taskbarShown/.test(require("fs").readFileSync(path.join(__dirname, "..", "BarWindow.qml"), "utf8")))
+})
+
+test("manifest: the widget is optional and the service is still its own kind", () => {
+  const manifest = JSON.parse(require("fs").readFileSync(path.join(__dirname, "..", "manifest.json"), "utf8"))
+  assert.deepStrictEqual(manifest.kinds, ["service", "bar-widget"])
+  assert.strictEqual(manifest.id, W.PLUGIN_ID)
+  assert.strictEqual(manifest.entryPoints.service, "Service.qml")
+  assert.strictEqual(manifest.entryPoints.barWidget, "BarWidget.qml")
+  assert.strictEqual(manifest.barWidget.allowMultiple, false)
+  const showIcon = manifest.barWidget.schema.find((field) => field.key === "showIcon")
+  assert.ok(showIcon && showIcon.defaultValue === true && manifest.barWidget.defaults.showIcon === true)
 })
 
 if (failures) {

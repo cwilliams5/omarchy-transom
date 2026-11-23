@@ -68,13 +68,16 @@ across a window. This one sits across all of yours.)
 
   ![Icons in color, gray, the theme's text color, and its accent](media/icon-styles.png)
 
+- **An optional icon on Omarchy's top bar** to show or hide the taskbar
+  (middle-click it) and reach its main settings. See "Top-bar widget".
 - **And:** auto-hide that gives windows the space back, emoji-free window
   titles, one bar per screen (or just the primary), and every option in one
   JSON file.
 
 ## Install
 
-Transom is an Omarchy shell plugin (a service with its own bar).
+Transom is an Omarchy shell plugin (a service with its own bar, and an
+optional widget for the top bar).
 
 ```bash
 omarchy plugin add https://github.com/cwilliams5/omarchy-transom.git --enable
@@ -82,6 +85,10 @@ omarchy plugin add https://github.com/cwilliams5/omarchy-transom.git --enable
 
 It's also listed in the Omarchy plugin marketplace:
 [omarchyplugins.com](https://omarchyplugins.com/plugin.html?id=io.github.cwilliams5.transom).
+
+`--enable` also puts Transom's icon on Omarchy's top bar (it asks where).
+To get rid of it, switch it off rather than removing it: see "Top-bar
+widget".
 
 Then, optionally:
 
@@ -124,6 +131,9 @@ omarchy plugin remove io.github.cwilliams5.transom
 Then, if you want everything back as it was:
 
 - Delete your settings: `rm ~/.config/omarchy/transom.json`.
+- If `~/.config/omarchy/shell.json` still lists `io.github.cwilliams5.transom`
+  under `plugins` (installs from before the top-bar widget can keep it),
+  delete that entry. Left there it does nothing.
 - Remove the Super+M line from your Hyprland config, if you added it
   (Omarchy's own Super+M comes back).
 - Put Omarchy's widgets back on the top bar (drag them in, or add them to
@@ -166,6 +176,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 
 | Option | Default | What |
 |---|---|---|
+| `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar widget is on a bar (its switch is the way back). See "Top-bar widget". |
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
 | `iconStyle` | `"color"` | App icons: `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. Which icons: `iconStyleOn`. See "Icon styles". |
 | `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
@@ -212,6 +223,44 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Transom settings… | Opens `transom.json` in the editor |
 
 Toggles keep the menu open; the last two close it.
+
+## Top-bar widget (optional)
+
+Transom's icon on Omarchy's top bar: the Transom window, with the taskbar
+as its bottom rail (left out while the taskbar is hidden).
+
+| Click | Does |
+|---|---|
+| Left or right | A dropdown: **Show the taskbar**, then Automatically hide the taskbar, Lock the taskbar, Windows, Combine buttons, Window thumbnails, Icons, Show on all displays (with more than one screen), and buttons for the bar menu and the settings file. Keyboard: j/k or the arrows, Enter. |
+| Middle | Show or hide the taskbar |
+
+**Hiding the taskbar** (the bar option `visible`) takes it off every
+screen, and windows get the space back. It only works while the widget is
+on a bar, since the widget's switch is how you get the taskbar back: take
+the widget off the bar while the taskbar is hidden and the taskbar comes
+back by itself. From a terminal or a key binding:
+`omarchy-shell transom show`, `hide` or `toggle`. For example, in your
+Hyprland config (pick any free keys):
+
+```lua
+o.bind("SUPER + ALT + T", "Show or hide the taskbar", "omarchy-shell transom toggle")
+```
+
+**Don't want the icon? Switch it off rather than removing it.** In
+Omarchy's bar settings, Transom's widget has **Show icon**: off, it takes
+no room on the bar, Transom keeps running, and a hidden taskbar still has a
+way back (the switch). Why not remove it: Omarchy runs a plugin that has a
+top-bar widget only while that widget is on a bar, unless the plugin is
+also in the `plugins` list of `~/.config/omarchy/shell.json`.
+`omarchy plugin add --enable` puts it on the bar and not in that list, so
+removing the widget turns Transom off, taskbar and all. (Installs from
+before Transom had a widget are in the list; for those, removing it
+changes nothing.)
+
+**Omarchy's plugin list** (`omarchy plugin list`, and plugin managers built
+on it) calls a plugin with a widget enabled only while the widget is on the
+bar, so it can call Transom disabled while the taskbar runs. Its
+enable/disable then puts the icon on the bar or takes it off.
 
 ## Taskbar buttons (`tasks`)
 
@@ -567,10 +616,12 @@ top bar runs, with its real panel, which opens upward.
 
 | File | What |
 |---|---|
-| `manifest.json` | Plugin id `io.github.cwilliams5.transom`, kind `service`. Turned on by its entry in `plugins` in `~/.config/omarchy/shell.json`. |
+| `manifest.json` | Plugin id `io.github.cwilliams5.transom`, kinds `service` and `bar-widget`. Runs while its id is in `plugins` or its widget is in `bar.layout`, in `~/.config/omarchy/shell.json`. |
 | `Service.qml` | Reads the look and the layout, saves settings (`updateWidget`), runs Hyprland commands and app launches for the widgets, the one-popup-at-a-time rule, the diagnostics commands. Opens a `BarWindow` per screen. Also the list of widget ids (`widgets`). |
 | `BarWindow.qml` | One screen's bar: background, the three sections, loading widgets into them, the right-click on empty space. |
 | `BarMenu.qml` | The bar's right-click menu. |
+| `BarWidget.qml`, `TopBarWidget.js`, `Registry.js` | The optional top-bar widget: its icon and dropdown; when the taskbar may be hidden and the dropdown's choices; how the widget finds the service on a bar that isn't Omarchy's. |
+| `ui/CrossbarIcon.qml` | The Transom mark, drawn for the top-bar widget. |
 | `defaults.json` | The layout and settings used until `~/.config/omarchy/transom.json` exists. |
 | `widgets/Tasks.qml` | The taskbar buttons (`tasks`) and their right-click menu. |
 | `widgets/QuickLaunch.qml`, `QuickLaunchModel.js` | Quick launch: buttons, launching, its menu; the model parses `apps` and does pinning. |

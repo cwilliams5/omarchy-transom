@@ -6,10 +6,31 @@
   "author": "Cody Williams",
   "description": "A Windows-style taskbar for Omarchy: start button, quick launch, this workspace's windows, tray, show desktop.",
   "kinds": [
-    "service"
+    "service",
+    "bar-widget"
   ],
   "entryPoints": {
-    "service": "Service.qml"
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Transom",
+    "description": "Optional: show or hide the taskbar, and its main settings, from the top bar. The taskbar works without it.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "showIcon": true
+    },
+    "schema": [
+      {
+        "key": "showIcon",
+        "type": "boolean",
+        "label": "Show icon",
+        "description": "Off, the widget takes no room on the bar but Transom keeps running. Removing the widget instead can turn Transom off (see the README).",
+        "defaultValue": true
+      }
+    ]
   },
   "license": "MIT"
 }

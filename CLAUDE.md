@@ -20,13 +20,20 @@ Since 0.1.0: windows tagged `skip-taskbar` get no button unless minimized
 (`cd5ee47`), and pin events re-read window data (`c7db3fe`).
 
 In progress, for 0.2.0, in this order:
-1. An optional top-bar widget: show or hide the bottom bar, and quick access
-   to its main settings. It must stay fully optional (see "Platform facts",
-   the bar-widget kind, for the catch).
+1. The optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
+   and its main settings in a dropdown. Built on branch `topbar-widget`
+   and tested live through commands (hide/show, the widget removed while
+   hidden, the icon switched off, the dropdown opened); waiting for Cody to
+   try the clicks, the keyboard and the "Bar menu…" button.
 2. A strict review of the whole plugin (fresh reviewers, fixes with
    regression tests).
 3. Release 0.2.0 and a "Plugin verification" request (the maintainer
    approves it first).
+
+Decided 2026-11-23: the widget's "Show icon" switch (Omarchy's bar
+settings) is how to go without the icon. Removing the widget instead turns
+Transom off for installs made with `--enable` (see "Platform facts", the
+bar-widget kind); the README says so.
 
 ## What Transom is
 
@@ -91,11 +98,13 @@ user's call, and the README tells them how.
 - Name: Transom (the horizontal bar across a window: a bar on windows, and a
   building-trade word, like Omarchy's Arch). Repo `cwilliams5/omarchy-transom`.
 - Ids:
-  - plugin id `io.github.cwilliams5.transom`; manifest kind `service`
+  - plugin id `io.github.cwilliams5.transom`; manifest kinds `service` and
+    `bar-widget` (the optional top-bar widget, `BarWidget.qml`; its
+    dropdown's IPC target is the plugin id, as for any Omarchy panel)
   - settings file `~/.config/omarchy/transom.json` (until it exists,
     `defaults.json`)
   - IPC target `transom`: `omarchy-shell transom windows | widgets | tray |
-    set <id> '<json>'`
+    set <id> '<json>' | show | hide | toggle`
   - log prefix `transom:`
   - layer-shell namespace `omarchy-bar` (Omarchy's own, on purpose; see the
     rules)
@@ -118,6 +127,9 @@ Service.qml           the service: look, layout + settings (transom.json),
 BarWindow.qml         one screen's bar: layer-shell window, the three
                       sections, WidgetSlot loader, auto-hide, widget drag
 BarMenu.qml           the right-click menu on empty bar space
+BarWidget.qml         the optional top-bar widget: icon + dropdown
+TopBarWidget.js       its pure logic: when the taskbar may hide, choices
+Registry.js           hands the service to the widget on non-Omarchy bars
 defaults.json         the release layout (plain on purpose)
 Settings.js           checks a layout entry against a widget's spec
 TasksModel.js         taskbar settings spec + pure logic (which windows,
@@ -128,7 +140,8 @@ Reorder.js            drag math: icons within a row, whole widgets on the bar
 IconSource.js         which icon references may reach a Qt Image
 CaptureCache.js       which windows are hidden from screen capture
 widgets/              Tasks, QuickLaunch, Tray, ShowDesktop, OmarchyWidget
-ui/                   AnchoredPopup (base of every popup), MenuCard,
+ui/                   CrossbarIcon (the mark, drawn for the top-bar
+                      widget), AnchoredPopup (base of every popup), MenuCard,
                       MenuItemRow, TooltipPopup, AppIcon, WindowPreview,
                       ThumbnailPopup, OmarchyBarApi (the `bar` Omarchy's
                       widgets expect)
@@ -202,7 +215,15 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 15. **Use the `omarchy-bar` layer namespace.** Hyprland's layer rules for
     Omarchy's top bar (glassy blur, no slide-in, the window-glassy toggle)
     then apply to this bar too, so it always looks like the top one.
-16. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
+16. **The top-bar widget stays optional, and a hidden taskbar always has a
+    way back.** Transom must work the same with no widget anywhere. The bar
+    option `visible` only hides the taskbar while the widget is on a bar
+    (`Service.widgetOnBar`: in Omarchy's layout, icon shown or not, or a
+    live copy counting itself); when the widget goes, the taskbar shows and
+    the saved "hidden" is cleared, so re-adding the widget doesn't hide it
+    by surprise. Never at start-up, before the shell has handed over its
+    config.
+17. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
     untrusted text reaching Hyprland's Lua. Quote shell arguments with
     `Util.shellQuote`.
@@ -250,6 +271,16 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 - **Auto-hide:** the window stays mapped; hidden, its content sits below the
   edge and the input mask is a 2 px strip that brings it back. It reserves
   no space while auto-hiding, so windows reach the edge.
+- **The top-bar widget** (`BarWidget.qml`, an Omarchy `Panel`) finds the
+  service through `shell.serviceFor` (Omarchy's top bar) or `Registry.js`
+  (any other bar), counts itself in `Service.widgetCopies`, and only reads
+  state and calls the service: `toggleTaskbar`, `updateWidget`,
+  `openBarMenu` (BarWindow opens BarMenu mid-bar on that screen),
+  `openSettingsFile`. Its icon is `ui/CrossbarIcon.qml`, a Shape on the
+  logo's 64-unit grid that Omarchy's `BarIconContent` scales into the slot.
+  Its dropdown is built from Omarchy's kit (`KeyboardPanel`, `PanelHero`,
+  `ToggleSwitch`, `Dropdown`, `Button`), so it looks and moves like
+  Omarchy's own panels.
 - **Diagnostics:** `omarchy-shell transom windows` prints every window, its
   tags, where it was minimized from and which screens' taskbars show it;
   `tray` does the same for tray icons; `widgets` lists Omarchy's widgets and
@@ -270,10 +301,20 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   with a `bar-widget` kind, `omarchy plugin enable` (and
   `omarchy plugin add --enable`) puts its widget on the top bar and adds no
   `plugins[]` entry; `disable` and dragging the widget off the bar only remove
-  that bar entry; `omarchy plugin list` calls it disabled unless its widget is
-  on the bar (`setEnabled`, `listPlugins`, `inBar`). So a plugin installed
-  that way stops entirely when its widget is removed, while one already in
-  `plugins[]` keeps running. Matters for the 0.2.0 widget.
+  that bar entry; `omarchy plugin list` (and Omaplug, which reads it) calls
+  it disabled unless its widget is on the bar (`setEnabled`, `listPlugins`,
+  `inBar`). So a plugin installed that way stops entirely when its widget
+  is removed, while one already in `plugins[]` keeps running. No Omarchy
+  command adds a bar-widget plugin to `plugins[]`. `omarchy plugin remove`
+  only clears an entry when the list says enabled, so it can leave a stale
+  `plugins[]` entry behind (harmless). Checked in Omarchy 4.5.0-3's source,
+  and live on 2026-11-23 for the `plugins[]` case.
+- **A bar widget's "Show icon"** is the widget's own schema setting
+  (`manifest.json` `barWidget.schema`), saved on its `bar.layout` entry;
+  Omarchy's bar settings show it. `omarchy-shell shell setBarWidget <id>
+  showIcon false '{}'` sets it from a terminal.
+- **Omarchy's bar doesn't claim right or middle clicks on widgets** (only
+  its custom-command widget uses them), so the widget can.
 - **Quickshell caches QML.** Saving a file in the plugin folder makes Omarchy
   reload the plugin, but already-loaded QML stays cached, so the old code
   runs. `omarchy restart shell` after any QML change (it refuses while the
@@ -301,7 +342,7 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 ## Working on it
 
-- **Tests:** `node tests/run.js` (84 tests, about a second, nothing on
+- **Tests:** `node tests/run.js` (91 tests, about a second, nothing on
   screen). They cover the pure `.js` logic only; QML is checked when the
   shell loads it, so watch the log after a restart. Run before every commit.
 - **Try a change live:** commit on a branch in the working copy, then
@@ -313,6 +354,14 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   ```
   Afterwards `git -C "$live" checkout main` and, once pushed,
   `omarchy plugin update io.github.cwilliams5.transom --yes`.
+- **The top-bar widget without clicking:** open its dropdown with
+  `omarchy-shell shell toggle io.github.cwilliams5.transom '{}'` (and `hide`
+  to close it); hide and show the taskbar with `omarchy-shell transom
+  hide|show`. Never script clicks on the top bar: leave clicking the icon
+  to a person. Check `QML` syntax first with
+  `/usr/lib/qt6/bin/qmllint --bare <file>` (it can't resolve Omarchy's
+  imports, so read only its syntax errors). Try icon drawings offscreen
+  with `QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qml` and `grabToImage`.
 - **Log:** `/run/user/$UID/quickshell/by-pid/<pid>/log.log`, pid from
   `pgrep -f 'quickshell -n -p /usr/share/omarchy/shell'`. Grep `transom:`.
 - **Is the bar there:**
