@@ -1024,6 +1024,17 @@ test("show desktop brings back only its own windows: still minimized, from here 
   assert.ok(!M.restorable(null, 1))
 })
 
+test("a click on the active window minimizes it, Windows-style, unless the pointer just focused it on its way down", () => {
+  assert.strictEqual(M.SETTINGS.activeClick.default, "minimize")
+  const t = 100000
+  assert.ok(M.activeClickMinimizes("minimize", t - 5000, t), "active long before the pointer reached the bar")
+  assert.ok(!M.activeClickMinimizes("minimize", t - 300, t), "focused 0.3 s before reaching the bar (focus follows mouse)")
+  assert.ok(M.activeClickMinimizes("minimize", t - M.APPROACH_MS, t), "exactly the approach time: minimizes")
+  assert.ok(M.activeClickMinimizes("minimize", t + 2000, t), "became active after reaching the bar (a key, a new window)")
+  assert.ok(M.activeClickMinimizes("minimize", 0, 0), "nothing known: minimizes")
+  assert.ok(!M.activeClickMinimizes("nothing", t - 5000, t), "activeClick: nothing")
+})
+
 if (failures) {
   console.log("\n" + failures + " failed")
   process.exit(1)

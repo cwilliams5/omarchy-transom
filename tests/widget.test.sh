@@ -175,7 +175,7 @@ check "Show: shown and saved" "$(st .shown),$(file .bar.visible)" "true,null"
 
 check "the widget loads and finds the service (through Registry.js)" "$(st .ready)" "true"
 check "...and counts itself with it (the widget never did, 2026-11-23)" "$(st .copies)" "1"
-check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide locked topBarIcon tasks iconsOnly combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
+check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide locked topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
 check "the first key lands on the first row" "$(wt move 0 1)" "shown"
 check "down moves to the next" "$(wt move 0 1)" "autohide"
 
@@ -205,6 +205,9 @@ check "...then save once: one icon more" "$(file '.right[] | select(.id == "tray
 wt maxIcons 3 >/dev/null; sleep 0.4
 check "the slider saves its value" "$(file '.right[] | select(.id == "tray") | .maxIcons')" "3"
 
+wt cursor activeClick >/dev/null; wt activate >/dev/null; sleep 0.4
+check "Click active to minimize: on by default, off when switched" "$(file '.center[] | select(.id == "tasks") | .activeClick')" '"nothing"'
+wt cursor activeClick >/dev/null; wt activate >/dev/null; sleep 0.4
 wt cursor tasks >/dev/null; wt activate >/dev/null; sleep 0.4
 check "Taskbar buttons off hides its rows" "$(st '.keys | map(select(. == "combine" or . == "windows")) | length'),$(file '.center[] | select(.id == "tasks") | .enabled')" "0,false"
 wt cursor tasks >/dev/null; wt activate >/dev/null; sleep 0.4

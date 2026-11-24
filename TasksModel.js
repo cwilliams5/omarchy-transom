@@ -14,7 +14,7 @@ var SETTINGS = {
   minTextWidth: { default: 90, min: 0, max: 600 },                        // narrower than this: icon-only
   windows: { default: "workspace", choices: ["workspace", "monitor", "all"] },
   minimized: { default: "dimmed", choices: ["dimmed", "normal", "hidden"] },
-  activeClick: { default: "nothing", choices: ["nothing", "minimize"] },  // clicking the active window
+  activeClick: { default: "minimize", choices: ["nothing", "minimize"] },  // clicking the active window (Windows minimizes it)
   middleClick: { default: "close", choices: ["close", "nothing"] },
   tooltip: { default: true },                                              // full title when cut off
   tooltipDelay: { default: 600, min: 0, max: 5000 },                      // ms of hovering first
@@ -108,6 +108,19 @@ function skipsTaskbar(tags) {
     if (SKIP_TAG.test(String(list[i]))) return true
   }
   return false
+}
+
+// Whether a click on the active window's button minimizes it (activeClick
+// "minimize", as on Windows). Not when the window became active less than
+// APPROACH_MS before the pointer reached the bar: with focus following the
+// mouse (Omarchy's tiled workspaces), the pointer passing over a window on
+// its way down focuses it, and that click was meant to bring it forward.
+// activeSince and barEnteredAt are times in ms; 0 when unknown.
+var APPROACH_MS = 1000
+function activeClickMinimizes(setting, activeSince, barEnteredAt) {
+  if (setting !== "minimize") return false
+  var gap = barEnteredAt - activeSince
+  return !(activeSince > 0 && barEnteredAt > 0 && gap >= 0 && gap < APPROACH_MS)
 }
 
 // Whether a window's last snapshot shows it maximized: Hyprland's
@@ -384,6 +397,8 @@ if (typeof module !== "undefined") {
     startsRefresh: startsRefresh,
     hiddenOrGrouped: hiddenOrGrouped,
     isMaximizedIpc: isMaximizedIpc,
+    APPROACH_MS: APPROACH_MS,
+    activeClickMinimizes: activeClickMinimizes,
     restorable: restorable,
     barlessWorkspaces: barlessWorkspaces,
     skipsTaskbar: skipsTaskbar,

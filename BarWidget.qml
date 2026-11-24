@@ -211,7 +211,7 @@ Panel {
     if (root.severalScreens) keys.push("screens")
     keys.push("topBarIcon")
     keys.push("tasks")
-    if (root.tasksOn) keys = keys.concat(["iconsOnly", "combine", "thumbnails", "plainTitles", "windows"])
+    if (root.tasksOn) keys = keys.concat(["iconsOnly", "activeClick", "combine", "thumbnails", "plainTitles", "windows"])
     keys.push("tray")
     if (root.trayOn) {
       keys.push("overflow")
@@ -462,6 +462,16 @@ Panel {
                 label: "Icons only"
                 checked: root.tasks.labels === "icon"
                 onToggled: root.change("tasks", { labels: root.tasks.labels === "icon" ? "title" : "icon" })
+              }
+
+              // Windows' behaviour: a click on the active window minimizes it.
+              SwitchRow {
+                key: "activeClick"
+                visible: root.tasksOn
+                indented: true
+                label: "Click active to minimize"
+                checked: root.tasks.activeClick === "minimize"
+                onToggled: root.change("tasks", { activeClick: root.tasks.activeClick === "minimize" ? "nothing" : "minimize" })
               }
 
               ChoiceRow {

@@ -59,6 +59,14 @@ Item {
   readonly property var monitor: panel ? Hyprland.monitorFor(panel.screen) : null
   readonly property int workspaceId: monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1
 
+  // When the active window last changed, for activeClick (a window focused
+  // on the pointer's way down to the bar isn't minimized by that click).
+  property double activeSince: 0
+  Connections {
+    target: Hyprland
+    function onActiveToplevelChanged() { taskbar.activeSince = Date.now() }
+  }
+
   // The taskbar's point of view, for TasksModel.belongsTo.
   readonly property var view: {
     var onMonitor = []
@@ -310,7 +318,8 @@ Item {
       taskbar.restoreWindow(entry)
     } else if (!entry.toplevel.activated) {
       taskbar.focusWindow(entry)
-    } else if (taskbar.cfg.activeClick === "minimize") {
+    } else if (TasksModel.activeClickMinimizes(taskbar.cfg.activeClick, taskbar.activeSince,
+        taskbar.panel ? taskbar.panel.pointerEnteredAt : 0)) {
       taskbar.minimizeWindow(entry)
     }
   }

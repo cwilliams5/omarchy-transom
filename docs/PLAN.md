@@ -10,6 +10,18 @@ main (CLAUDE.md, Status). `omarchy plugin update` has already brought them
 to existing users, still labelled 0.1.0 (R1-M4), so: finish the list below,
 then release 0.2.0 through the ship-update skill.
 
+### Added after the reviews
+
+- [x] **Click the active window to minimize** (Cody, 2026-11-24): the
+  `activeClick` setting existed (default "nothing", a choice from the first
+  build); now it defaults to "minimize" as on Windows, with a row in the
+  bar menu and the dropdown. A window that became active less than a
+  second before the pointer reached the bar isn't minimized by that click
+  (focus follows the mouse on Omarchy's tiled workspaces, so the pointer
+  focuses the window it passes on its way down). Tested
+  (`TasksModel.activeClickMinimizes`, the dropdown toggle; two mutations).
+  The click itself (Tasks.qml) and the timing on a real desktop: by Cody.
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with

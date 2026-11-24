@@ -217,6 +217,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
 | ⤷ Centered, Icons only | Its `align` and `labels` |
+| ⤷ Click the active window to minimize | Its `activeClick` |
 | ⤷ Combine: … | Cycles `combine`: never → when full → always |
 | ⤷ Window thumbnails | Its `thumbnails` |
 | ⤷ Plain titles (no emoji) | Its `titleSymbols` |
@@ -246,7 +247,7 @@ as its bottom rail (left out while the taskbar is hidden).
 
 | Click | Does |
 |---|---|
-| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
+| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, click the active window to minimize, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
 | Middle | Show or hide the taskbar |
 
 **Hiding the taskbar** (the bar option `visible`) takes it off every
@@ -294,7 +295,7 @@ minimized on workspace 1 shows on workspace 1's taskbar only.
 
 | Action | Result |
 |---|---|
-| Left click | Focus the window, or bring a minimized one back. Clicking the window that's already active does nothing (or minimizes it: `activeClick`). |
+| Left click | Focus the window, or bring a minimized one back. Clicking the window that's already active minimizes it, as on Windows (`activeClick`), focus going back to the window before it. |
 | Middle click | Close it |
 | Right click | Menu: New window, Pin to quick launch, Minimize/Restore, Move to workspace 1–5, Float/Tile, Close |
 | Scroll | Step to the next or previous window (minimized ones are skipped) |
@@ -332,7 +333,7 @@ by `Settings.js`.
 | `minTextWidth` | `90` | Narrower than this, buttons go icon-only (0–600) |
 | `windows` | `"workspace"` | `"workspace"`: this workspace's windows plus those minimized from it. `"monitor"`: every workspace on this screen. `"all"`: every window. |
 | `minimized` | `"dimmed"` | `"dimmed"`, `"normal"`, `"hidden"` |
-| `activeClick` | `"nothing"` | Clicking the active window: `"nothing"`, `"minimize"` (the Windows default) |
+| `activeClick` | `"minimize"` | Clicking the active window: `"minimize"` (as on Windows) or `"nothing"`. A window that became active less than a second before the pointer reached the bar isn't minimized by that click: with focus following the mouse (Omarchy's tiled workspaces), the pointer focuses the window it passes on its way down. |
 | `middleClick` | `"close"` | `"close"`, `"nothing"` |
 | `tooltip` | `true` | Full title on hover, when it's cut off or hidden |
 | `tooltipDelay` | `600` | ms of hovering before the tooltip shows (0–5000) |

@@ -190,6 +190,16 @@ AnchoredPopup {
       onTriggered: menu.change("tasks", { labels: checked ? "title" : "icon" })
     }
 
+    // Windows' behaviour: a click on the active window minimizes it.
+    MenuItemRow {
+      visible: menu.page === "main" && menu.taskbarOn
+      indent: 1
+      text: "Click the active window to minimize"
+      checkColumn: true
+      checked: menu.taskbar.activeClick === "minimize"
+      onTriggered: menu.change("tasks", { activeClick: checked ? "nothing" : "minimize" })
+    }
+
     // Windows' "Combine taskbar buttons": one per app. Steps through.
     MenuItemRow {
       visible: menu.page === "main" && menu.taskbarOn

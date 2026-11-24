@@ -13,7 +13,7 @@
       "minTextWidth": 90,
       "windows": "workspace",
       "minimized": "dimmed",
-      "activeClick": "nothing",
+      "activeClick": "minimize",
       "middleClick": "close",
       "tooltip": true,
       "tooltipDelay": 600,

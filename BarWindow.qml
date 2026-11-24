@@ -68,10 +68,16 @@ PanelWindow {
 
   mask: Region { item: window.shown ? content : trigger }
 
+  // When the pointer last reached the bar: a window that became active just
+  // before (focus following the mouse on the way down) isn't minimized by a
+  // click on its button (TasksModel.activeClickMinimizes).
+  property double pointerEnteredAt: 0
+
   HoverHandler {
     id: barHover
     onHoveredChanged: {
       if (hovered) {
+        window.pointerEnteredAt = Date.now()
         hideTimer.stop()
         window.revealed = true
       } else if (window.autohide) {

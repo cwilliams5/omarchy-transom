@@ -310,8 +310,8 @@
   {
     "name": "dropdown-hidden-rows",
     "file": "BarWidget.qml",
-    "find": "    if (root.tasksOn) keys = keys.concat([\"iconsOnly\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
-    "replace": "    keys = keys.concat([\"iconsOnly\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
+    "find": "    if (root.tasksOn) keys = keys.concat([\"iconsOnly\", \"activeClick\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
+    "replace": "    keys = keys.concat([\"iconsOnly\", \"activeClick\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
     "why": "F M15: the cursor stops on hidden rows"
   },
   {
@@ -439,5 +439,19 @@
     "find": "    if (on && !root.widgetOnBar) root.putWidgetOnTopBar()\n",
     "replace": "",
     "why": "a widget dragged off the top bar has no way back from the taskbar"
+  },
+  {
+    "name": "active-click-approach-ignored",
+    "file": "TasksModel.js",
+    "find": "  return !(activeSince > 0 && barEnteredAt > 0 && gap >= 0 && gap < APPROACH_MS)",
+    "replace": "  return true",
+    "why": "a window focused on the pointer's way down is minimized by the click meant to bring it forward"
+  },
+  {
+    "name": "active-click-default-off",
+    "file": "TasksModel.js",
+    "find": "  activeClick: { default: \"minimize\",",
+    "replace": "  activeClick: { default: \"nothing\",",
+    "why": "the Windows default Cody asked for"
   }
 ]
