@@ -13,6 +13,7 @@ import "QuickLaunchModel.js" as QuickLaunchModel
 import "TopBarWidget.js" as TopBarWidget
 import "Registry.js" as Registry
 import "IconStyle.js" as IconStyle
+import "Hosting.js" as Hosting
 
 // Transom: a Windows-style taskbar along the bottom edge of every screen. It
 // takes its look from Omarchy's top bar (theme colors, font, height, and the
@@ -70,19 +71,9 @@ Item {
     "showdesktop": "widgets/ShowDesktop.qml"
   })
 
-  // Omarchy's bar widgets the bar menu offers, as [{ id, name }] sorted by
-  // name. Its tray is left out (widgets/Tray.qml replaces it here).
-  readonly property var omarchyWidgetList: {
-    var widgets = root.barWidgetRegistry && root.barWidgetRegistry.widgets ? root.barWidgetRegistry.widgets : {}
-    var out = []
-    for (var id in widgets) {
-      if (id === "omarchy.tray") continue
-      var meta = widgets[id].metadata || {}
-      out.push({ id: id, name: String(meta.displayName || id) })
-    }
-    out.sort(function(a, b) { return a.name.localeCompare(b.name) })
-    return out
-  }
+  // Omarchy's own bar widgets the bar menu offers, as [{ id, name }] sorted
+  // by name (Hosting.menuList: not its tray, not other plugins' widgets).
+  readonly property var omarchyWidgetList: Hosting.menuList(root.barWidgetRegistry ? root.barWidgetRegistry.widgets : null)
 
   // The top bar's layout (shell.json bar.layout), e.g. for the tray to leave
   // out an app icon a top-bar widget already shows.
@@ -113,11 +104,10 @@ Item {
     root.popupWindow = null
   }
 
-  // Whether id is one of Omarchy's own bar widgets (omarchy.network...).
+  // Whether id is a bar widget from Omarchy's catalogue this bar can host
+  // (omarchy.network...; never Transom's own, Hosting.canHost).
   function isOmarchyWidget(id) {
-    var widgets = root.barWidgetRegistry && root.barWidgetRegistry.widgets ? root.barWidgetRegistry.widgets : null
-    var key = String(id || "")
-    return !!widgets && Object.prototype.hasOwnProperty.call(widgets, key) && !!widgets[key]
+    return Hosting.canHost(id, root.barWidgetRegistry ? root.barWidgetRegistry.widgets : null)
   }
 
   // Omarchy hands over its widget catalogue a moment after the plugin
@@ -155,21 +145,12 @@ Item {
   // through the file watcher doesn't rebuild every widget a second time.
   property string layoutText: ""
 
-  function normalize(parsed) {
-    var out = {}
-    if (parsed && parsed.bar && typeof parsed.bar === "object" && !Array.isArray(parsed.bar)) out.bar = parsed.bar
-    for (var s = 0; s < root.sections.length; s++) {
-      var list = parsed && Array.isArray(parsed[root.sections[s]]) ? parsed[root.sections[s]] : []
-      out[root.sections[s]] = list.filter(function(entry) { return entry && typeof entry.id === "string" && entry.id !== "" })
-    }
-    return out
-  }
 
   // Bar-wide options: the "bar" object at the top of the settings file.
   readonly property var barSettingsSpec: ({
     // See raiseSteps. Remove once Hyprland draws a focused maximized window
-    // above floating ones: docs/upstream/hyprland-maximized-float-stacking/
-    // in the dotfiles repo has the test and the removal steps.
+    // above floating ones (tracked as omacom/omarchy#16241; CLAUDE.md,
+    // "Platform facts", says what to remove).
     maximizedRaiseWorkaround: { default: true },
     // "Lock the taskbar": nothing on the bar can be dragged.
     locked: { default: false },
@@ -266,11 +247,33 @@ Item {
   // ------------------------------------------------------ top-bar widget
 
   // Live copies of the optional top-bar widget (BarWidget.qml) using this
-  // service; each counts itself while it exists. That catches a copy on a
-  // bar other than Omarchy's, which the layout check below can't see.
+  // service; each counts itself while it exists.
   property int widgetCopies: 0
+  // A live copy exists, or left less than a second ago (the top bar
+  // rebuilds a widget now and then).
+  property bool widgetLive: false
+  onWidgetCopiesChanged: {
+    if (root.widgetCopies > 0) {
+      root.widgetLive = true
+      widgetGoneTimer.stop()
+    } else if (root.widgetLive) {
+      widgetGoneTimer.restart()
+    }
+  }
+  // For a while after start-up, Omarchy's layout listing the widget counts
+  // too, until a copy has had time to count itself, so a hidden taskbar
+  // doesn't flash up at every shell start. After that only a live copy is a
+  // way back: a widget in the layout that never loads (broken by an update,
+  // or a replacement bar that doesn't draw it) isn't (strict review R1-M1).
+  property int startupGraceMs: 10000
+  property bool startupGrace: true
+  Timer {
+    interval: root.startupGraceMs
+    running: root.startupGrace
+    onTriggered: root.startupGrace = false
+  }
   // The widget is on a bar (its icon showing or not).
-  readonly property bool widgetOnBar: widgetCopies > 0 || TopBarWidget.inLayout(root.topBarLayout)
+  readonly property bool widgetOnBar: root.widgetLive || (root.startupGrace && TopBarWidget.inLayout(root.topBarLayout))
   // The bar option topBarIcon: the widget draws its icon.
   readonly property bool topBarIconShown: root.settings.topBarIcon !== false
   // Drawn or not: the bar option visible, which only counts while the
@@ -309,25 +312,17 @@ Item {
     else root.updateWidget("bar", { topBarIcon: false, visible: undefined })
   }
 
-  // Once the widget has been seen on a bar and then goes, a saved "hidden"
-  // is cleared too, so putting the widget back later doesn't hide the
-  // taskbar by surprise. Never at start-up (the shell hands over its config
-  // a moment after the service starts), and only once the widget has
-  // stayed gone for a second (the top bar rebuilds its widgets now and then).
-  property bool widgetSeen: false
-  onWidgetOnBarChanged: {
-    if (widgetOnBar) {
-      root.widgetSeen = true
-      widgetGoneTimer.stop()
-    } else if (root.widgetSeen) {
-      widgetGoneTimer.restart()
-    }
-  }
+  // When the last copy has been gone for a second, a saved "hidden" is
+  // cleared too, so putting the widget back later doesn't hide the taskbar
+  // by surprise. (On an install Omarchy lists only on the bar, removing the
+  // widget stops Transom first; it comes back as it was, icon included.)
   Timer {
     id: widgetGoneTimer
     interval: 1000
     onTriggered: {
-      if (root.widgetOnBar || root.settings.visible !== false) return
+      if (root.widgetCopies > 0) return
+      root.widgetLive = false
+      if (root.settings.visible !== false) return
       console.log("transom: the top-bar widget is gone, so the taskbar shows again")
       root.updateWidget("bar", { visible: undefined })
     }
@@ -370,7 +365,11 @@ Item {
   property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
   readonly property bool lightBar: 0.2126 * themeBackground.r + 0.7152 * themeBackground.g + 0.0722 * themeBackground.b > 0.5
 
+  // Omarchy creates its defaults folder only when an agent is first picked,
+  // and a watch on a missing folder never fires, so while no agent is known
+  // the file is read again on window events too (strict review R1-L10).
   FileView {
+    id: agentFile
     path: Quickshell.env("HOME") + "/.config/omarchy/defaults/agent"
     watchChanges: true
     printErrors: false
@@ -391,22 +390,42 @@ Item {
     for (var i = 0; i < problems.length; i++) console.warn("transom: bar setting ignored: " + problems[i])
   }
 
-  function parseLayout(text, what) {
-    try {
-      var parsed = JSON.parse(text)
-      if (parsed && typeof parsed === "object") return root.normalize(parsed)
-    } catch (error) {
-      console.warn("transom: " + what + " is not valid JSON: " + error)
-    }
-    return null
+  // What's wrong with the user's file, or "" (Settings.readLayout). While
+  // it's set, nothing is saved: a click would otherwise replace a file the
+  // bar couldn't fully read (strict review R1-H4). The bar shows what it
+  // could read, or the last good settings, or the defaults.
+  property string settingsError: ""
+  // The last save failed (an unwritable file): the bar went back to what's
+  // on disk (R1-L6).
+  property string saveError: ""
+  readonly property string settingsProblem: settingsError !== "" ? settingsError : saveError
+  // The text on disk as last read or saved, to go back to after a failed save.
+  property string diskText: ""
+
+  // Says once, per distinct problem, in a notification (the bar menu and
+  // the top-bar dropdown say it too, while it lasts).
+  property string notifiedProblem: ""
+  onSettingsProblemChanged: {
+    if (root.settingsProblem === "" || root.settingsProblem === root.notifiedProblem) return
+    root.notifiedProblem = root.settingsProblem
+    console.warn("transom: " + root.configPath + ": " + root.settingsProblem)
+    Util.execDetached("notify-send -a Transom " + Util.shellQuote("Transom's settings file has a problem")
+      + " " + Util.shellQuote(root.configPath + ": " + root.settingsProblem + ". Changes from the menus are paused until it's fixed."))
   }
 
   function applyUserText(text) {
-    if (text === root.layoutText) return
-    var parsed = root.parseLayout(text, root.configPath)
-    if (!parsed) return
+    if (text === root.layoutText && root.settingsError === "") return
+    var read = Settings.readLayout(text, root.sections)
     root.layoutText = text
-    root.layout = parsed
+    root.diskText = text
+    if (read.problems.length > 0) {
+      root.settingsError = read.problems.join("; ")
+      if (read.layout) root.layout = read.layout
+      return
+    }
+    root.settingsError = ""
+    root.saveError = ""
+    root.layout = read.layout
   }
 
   FileView {
@@ -414,10 +433,11 @@ Item {
     blockLoading: true
     printErrors: false
     onLoaded: {
-      var parsed = root.parseLayout(text(), "defaults.json")
-      if (!parsed) return
-      root.defaultLayout = parsed
-      if (!root.userConfigExists) root.layout = parsed
+      var read = Settings.readLayout(text(), root.sections)
+      if (read.problems.length > 0) console.warn("transom: defaults.json: " + read.problems.join("; "))
+      if (!read.layout) return
+      root.defaultLayout = read.layout
+      if (!root.userConfigExists) root.layout = read.layout
     }
   }
 
@@ -434,18 +454,38 @@ Item {
     onLoadFailed: {
       root.userConfigExists = false
       root.layoutText = ""
+      root.diskText = ""
+      root.settingsError = ""
       root.layout = root.defaultLayout
     }
     onFileChanged: reload()
+    onSaved: {
+      root.diskText = root.layoutText
+      root.saveError = ""
+    }
+    onSaveFailed: function(error) {
+      root.saveError = "it couldn't be saved (" + error + ")"
+      // Back to what's on disk: memory had already moved on.
+      var disk = root.diskText
+      root.layoutText = ""
+      if (disk !== "") root.applyUserText(disk)
+      else root.layout = root.defaultLayout
+    }
   }
 
-  // Writes the whole layout to the user's file and applies it.
+  // Writes the whole layout to the user's file and applies it. Refused
+  // while the file has a problem (settingsError): returns false.
   function saveLayout(next) {
+    if (root.settingsError !== "") {
+      console.warn("transom: not saved: " + root.configPath + ": " + root.settingsError)
+      return false
+    }
     var text = JSON.stringify(next, null, 2) + "\n"
     root.layoutText = text
     root.userConfigExists = true
     root.layout = next
     userFile.setText(text)
+    return true
   }
 
   // The first entry for a widget id, or null.
@@ -560,8 +600,12 @@ Item {
 
   // ------------------------------------------------- windows and apps
 
+  // A dispatch's window. Only ever a Hyprland address (0x and hex): nothing
+  // else may reach Hyprland's Lua (rule 17; strict review R1-L4).
   function target(address) {
-    return "window = \"address:" + address + "\""
+    var value = TasksModel.normalizeAddress(address)
+    if (!/^0x[0-9a-fA-F]+$/.test(value)) value = "0x0"
+    return "window = \"address:" + value + "\""
   }
 
   // Runs Hyprland dispatches in order, then any `after` ones 0.4s later.
@@ -591,8 +635,8 @@ Item {
   // once it has focus (no raise or bring_to_top helps), and those windows
   // then look clickable but aren't. Taking it out of maximized, raising it
   // and maximizing it again does put it on top. Animation is off meanwhile,
-  // so it isn't seen. Found 2026-11-17 with Superhuman over a maximized
-  // Chrome; reproduced with test windows.
+  // so it isn't seen. Found 2026-11-17 with a floating window over a
+  // maximized browser; reproduced with test windows.
   function raiseSteps(t, maximized) {
     if (!maximized) return { steps: ["hl.dsp.window.alter_zorder({ mode = \"top\", " + t + " })"], after: [] }
     return {
@@ -682,18 +726,20 @@ Item {
   Timer {
     id: refreshTimer
     interval: 100
-    onTriggered: Hyprland.refreshToplevels()
+    onTriggered: {
+      Hyprland.refreshToplevels()
+      if (root.agentId === "") agentFile.reload()
+    }
   }
 
-  // "pin": a pinned window's tags can change with it (Legato's video window
-  // is tagged skip-taskbar only while it's pinned).
-  readonly property var refreshEvents: ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin"]
+  // Which events start it: TasksModel.REFRESH_EVENTS ("pin", because a
+  // pinned window's tags can change with it; the group events, because a
+  // group's other tabs are hidden).
 
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      var name = event ? String(event.name) : ""
-      if (root.refreshEvents.indexOf(name) >= 0 && !refreshTimer.running) refreshTimer.start()
+      if (TasksModel.startsRefresh(event ? String(event.name) : "", refreshTimer.running)) refreshTimer.start()
     }
   }
 
@@ -720,6 +766,10 @@ Item {
       }
       var parsed = Settings.parse(taskbarEntry, TasksModel.SETTINGS)
       var known = Hyprland.workspaces.values.map(function(workspace) { return workspace.id })
+      var barNames = (Settings.toList(root.barScreens) || []).map(function(screen) { return String(screen.name) })
+      var barless = TasksModel.barlessWorkspaces(Hyprland.workspaces.values.map(function(workspace) {
+        return { id: workspace.id, monitorName: workspace.monitor ? workspace.monitor.name : "" }
+      }), barNames)
       var monitors = Hyprland.monitors.values.map(function(monitor) {
         return {
           name: monitor.name,
@@ -729,6 +779,7 @@ Item {
             monitorWorkspaces: Hyprland.workspaces.values.filter(function(workspace) { return workspace.monitor === monitor })
               .map(function(workspace) { return workspace.id }),
             knownWorkspaces: known,
+            barlessWorkspaces: barless,
             showMinimized: parsed.settings.minimized !== "hidden"
           }
         }

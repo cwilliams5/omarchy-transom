@@ -181,7 +181,10 @@ function clickIsNative(icon, settings) {
 // changed, the app handled the click. If nothing did, step in, Windows-style:
 // bring its window forward, else start it, else open its menu.
 // Returns "app", "focus", "restore", "launch", "menu" or "nothing".
+// A view that failed (no answer, a timeout) proves nothing, so the app's own
+// click stands: "app" (strict review R1-M3: it used to read as "launch").
 function afterClick(before, after, options) {
+  if (!before || !after || before.failed || after.failed) return "app"
   if (snapshot(before) !== snapshot(after)) return "app"
   var now = after || {}
   if (now.window) return now.minimized ? "restore" : "focus"

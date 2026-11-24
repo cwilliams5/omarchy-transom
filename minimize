@@ -8,11 +8,13 @@
 # workspaces, but the taskbar is on every workspace. Like Omarchy's, it parks
 # the window on special:minimized and tags it omarchy-minimized-from-<id>, so
 # the taskbar of the workspace it came from can show it and bring it back.
-# Super+M runs this (~/.config/hypr/transom.lua (in Cody's dotfiles; any Super+M binding works)).
+# Super+M runs this, through the binding in the README (any key works).
 
+ACTIVE=$(hyprctl activewindow -j | jq -r '.address // empty')
 if [[ -n ${1:-} ]]; then
   ADDRESS=$1
   [[ $ADDRESS == 0x* ]] || ADDRESS="0x$ADDRESS"
+  [[ $ADDRESS =~ ^0x[0-9a-fA-F]+$ ]] || exit 1
   WORKSPACE=$(hyprctl clients -j | jq -r --arg address "$ADDRESS" 'first(.[] | select(.address == $address) | .workspace.id) // empty')
 else
   read -r ADDRESS WORKSPACE < <(hyprctl activewindow -j | jq -r '"\(.address // "") \(.workspace.id // "")"')
@@ -30,12 +32,19 @@ remember_minimized_from() {
       hyprctl dispatch "hl.dsp.window.tag({ tag = \"-$tag\", window = \"address:$address\" })" >/dev/null
     done < <(jq -r --arg address "$address" '.[] | select(.address == $address) | (.tags // [])[]' <<<"$clients")
   fi
-  hyprctl dispatch "hl.dsp.window.tag({ tag = \"+omarchy-minimized-from-$workspace\", window = \"address:$address\" })" >/dev/null
+  # hyprctl exits 0 even when Hyprland refuses, so read its reply.
+  [[ $(hyprctl dispatch "hl.dsp.window.tag({ tag = \"+omarchy-minimized-from-$workspace\", window = \"address:$address\" })") == ok ]]
 }
 
-remember_minimized_from "$ADDRESS" "$WORKSPACE"
+# Without its tag a minimized window has no home workspace on the taskbar,
+# so it isn't moved unless the tag landed.
+remember_minimized_from "$ADDRESS" "$WORKSPACE" || exit 1
 hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:minimized\", follow = false, window = \"address:$ADDRESS\" })" >/dev/null
 
-# Focus would otherwise stay with the minimized window, and the next window
-# opened would join it on the hidden workspace.
-hyprctl dispatch "hl.dsp.focus({ workspace = \"$WORKSPACE\" })" >/dev/null
+# Minimizing the focused window: focus would otherwise stay with it, and the
+# next window opened would join it on the hidden workspace. Any other window
+# (from a taskbar menu, or show desktop's chain): leave the screen where it
+# is (strict review R1-M6).
+if [[ $ADDRESS == "$ACTIVE" ]]; then
+  hyprctl dispatch "hl.dsp.focus({ workspace = \"$WORKSPACE\" })" >/dev/null
+fi

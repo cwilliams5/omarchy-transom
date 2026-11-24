@@ -45,8 +45,11 @@ Panel {
   property var service: null
   readonly property bool serviceReady: service !== null && service !== undefined
 
+  // After 10 s it slows to every 5 s, and says so once (nothing answers if
+  // Transom's service failed to load).
+  property int lookups: 0
   Timer {
-    interval: 250
+    interval: root.lookups < 40 ? 250 : 5000
     running: !root.serviceReady
     repeat: true
     triggeredOnStart: true
@@ -54,6 +57,8 @@ Panel {
       var shell = root.bar ? root.bar.shell : null
       var found = shell && typeof shell.serviceFor === "function" ? shell.serviceFor(TopBarWidget.PLUGIN_ID) : null
       root.service = found || Registry.service
+      root.lookups += 1
+      if (!root.serviceReady && root.lookups === 40) console.warn("transom: the top-bar widget can't find Transom's service; trying every 5 s")
     }
   }
 
@@ -141,6 +146,22 @@ Panel {
     if (next !== root.tray.maxIcons) root.change("tray", { maxIcons: next })
   }
 
+  // h/l on the slider: held down, the key repeats; save once it stops.
+  property int pendingMaxIcons: -1
+  function stepMaxIcons(delta) {
+    var from = root.pendingMaxIcons >= 0 ? root.pendingMaxIcons : root.tray.maxIcons
+    root.pendingMaxIcons = Math.max(0, Math.min(TopBarWidget.sliderMax(from), from + delta))
+    maxIconsSave.restart()
+  }
+  Timer {
+    id: maxIconsSave
+    interval: 300
+    onTriggered: {
+      if (root.pendingMaxIcons >= 0) root.setMaxIcons(root.pendingMaxIcons)
+      root.pendingMaxIcons = -1
+    }
+  }
+
   // The screen this widget's bar is on, so the bar menu opens there.
   function screenName() {
     try {
@@ -223,7 +244,7 @@ Panel {
       return
     }
     if (dx !== 0 && root.cursorKey === "maxIcons") {
-      root.setMaxIcons(root.tray.maxIcons + dx)
+      root.stepMaxIcons(dx)
       return
     }
     var next = at + dy
@@ -324,6 +345,21 @@ Panel {
             label: "Show the taskbar"
             checked: root.taskbarShown
             onToggled: root.toggleTaskbar()
+          }
+
+          // While transom.json has a problem nothing saves (the service
+          // refuses); say so and why.
+          Text {
+            visible: root.serviceReady && root.service.settingsProblem !== ""
+            width: parent.width
+            textFormat: Text.PlainText
+            wrapMode: Text.Wrap
+            text: root.serviceReady && root.service.settingsProblem !== ""
+              ? "transom.json has a problem, so changes here are paused until it's fixed: " + root.service.settingsProblem + "."
+              : ""
+            color: root.bar.urgent !== undefined ? root.bar.urgent : root.bar.foreground
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
           }
 
           PanelSeparator {
@@ -479,7 +515,7 @@ Panel {
                 visible: root.trayOn && root.tray.overflow === true
                 indented: true
                 label: "Icons before \"^\""
-                value: root.tray.maxIcons
+                value: root.pendingMaxIcons >= 0 ? root.pendingMaxIcons : root.tray.maxIcons
               }
 
               SwitchRow {

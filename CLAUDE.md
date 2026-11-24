@@ -19,24 +19,27 @@ approved-and-verified at `eb20a13`). Every commit after that shows as
 Since 0.1.0: windows tagged `skip-taskbar` get no button unless minimized
 (`cd5ee47`), and pin events re-read window data (`c7db3fe`).
 
-In progress, for 0.2.0, in this order:
-1. The optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
-   and a two-column dropdown with nearly every bar-menu setting. Built on
-   branch `topbar-widget`, tested live by command and by Cody (clicks, the
-   bar menu button, removing it). Cody asked for the fuller dropdown and for
-   window icons to get their own style (`windowIconStyle`, a "Window icons"
-   row in the bar menu); he'll trim the dropdown from there.
-2. A strict review of the whole plugin (fresh reviewers, fixes with
-   regression tests).
-3. Release 0.2.0 and a "Plugin verification" request (the maintainer
-   approves it first).
+0.2.0 is on main but not released (the version still says 0.1.0). Main
+already reaches existing users through `omarchy plugin update`, which is
+why unreleased work belongs on a branch from now on (strict review R1-M4).
+What 0.2.0 adds:
+- the optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
+  and a two-column dropdown with nearly every bar-menu setting;
+- window icons styled apart from the tray's (`windowIconStyle`);
+- the first strict review's fixes (`docs/PLAN.md`, R1), with
+  `tests/widget.test.sh` (the real widget and service, offscreen),
+  `tests/scripts.test.sh` and the mutation check (`tests/mutate.js`).
 
-Decided 2026-11-23 with Cody: removing the widget turns Transom off for
-installs made with `--enable` (see "Platform facts", the bar-widget kind),
-and nothing Transom may do changes that. So the way to go without the icon
-is Transom's own switch, the bar option `topBarIcon` (dropdown, and the
+Next (`docs/PLAN.md`): a second strict-review round to confirm R1 is clean,
+then release 0.2.0 and the marketplace's "Plugin verification" request
+(the maintainer approves both first).
+
+Decided 2026-11-23: removing the widget turns Transom off for installs
+made with `--enable` (see "Platform facts", the bar-widget kind), and
+nothing Transom may do changes that. So the way to go without the icon is
+Transom's own switch, the bar option `topBarIcon` (the dropdown, and the
 bottom bar's menu to bring it back), and the dropdown warns under it when
-removing would turn Transom off here (`Service.iconKeepsTransomOn`, from a
+removing would turn Transom off (`Service.iconKeepsTransomOn`, from a
 read-only look at shell.json's plugins list). A first try used a widget
 setting ("Show icon" in `barWidget.schema`) until it turned out Omarchy 4.5
 shows those nowhere.
@@ -65,8 +68,7 @@ user's call, and the README tells them how.
   knows Windows deeply. Explain Linux things plainly, with Windows
   comparisons where they help. Cody reviews anything outward-facing
   (publishing, posting, filing upstream) before it happens, and writes any
-  upstream bug report in his own words. He dislikes motion and visual noise
-  (scrolling titles, flashing, slide-ins), so the plugin has none by default.
+  upstream bug report in his own words.
 - **Sister projects** (Cody's, each in its own repo):
   - **Latch** (Windows-style Alt+Tab) leaves `skip-taskbar` windows out of
     Alt+Tab the same way, and lists minimized windows using the same
@@ -78,8 +80,9 @@ user's call, and the README tells them how.
     resizing, so its windows have `fullscreen` 0 and never need the
     stacking workaround below.
   - **Locus** (night light) and **Quiesce** (power options) are independent;
-    their bar widgets are the models for Transom's planned one (a service
-    lookup with a fallback, a dropdown in Omarchy's panel style).
+    their bar widgets were the models for Transom's (a service lookup with
+    a fallback, a dropdown in Omarchy's panel style), and Quiesce's panel
+    test for `tests/widget.test.sh`.
 - **Omarchy** (the desktop: Arch + Hyprland + a Quickshell shell) is the
   platform. Transom borrows its minimize protocol, its dock's dispatch forms
   and drag math, its tray's icon matching, and hosts its bar widgets
@@ -90,14 +93,11 @@ user's call, and the README tells them how.
   clone, updated with `omarchy plugin update`. **Never commit inside the live
   folder:** a local commit blocks `omarchy plugin update`. (Transom was
   developed inside its live folder until 2026-11-23; that's why older notes
-  say "edit in place".) Cody's dotfiles (`~/Work/dotfiles`, chezmoi) list it
-  by URL in `home/.chezmoidata/plugins.yaml` and track his `transom.json`
-  and his Super+M binding.
+  say "edit in place".)
 - **Origin:** started 2026-11-17 as a local plugin (`local.bottom-bar`) in
-  Cody's dotfiles, then split out and renamed (first commit `ee7afb1`
-  imports it). Most features were built in one planned overnight run; that
-  plan, its progress log and the morning report are in the dotfiles repo
-  (private), `docs/plans/transom-overnight-2026-11-18.md`.
+  the maintainer's own config, then split out and renamed (first commit
+  `ee7afb1` imports it). Most features were built in one planned overnight
+  run, from a plan kept outside this repo.
 
 ## Identity
 
@@ -125,7 +125,7 @@ user's call, and the README tells them how.
 ## Layout
 
 ```
-manifest.json         plugin id, kind service, entry point Service.qml
+manifest.json         plugin id, kinds service and bar-widget
 Service.qml           the service: look, layout + settings (transom.json),
                       saving (updateWidget), Hyprland dispatches and app
                       launches for the widgets, the one-popup rule, the IPC
@@ -138,8 +138,10 @@ TopBarWidget.js       its pure logic: when the taskbar may hide, choices
 Registry.js           hands the service to the widget on non-Omarchy bars
 IconStyle.js          which style each app icon gets: app icons (tray,
                       quick launch) and window icons apart
+Hosting.js            which of Omarchy's widgets the bottom bar hosts
 defaults.json         the release layout (plain on purpose)
-Settings.js           checks a layout entry against a widget's spec
+Settings.js           reads transom.json (readLayout: problems pause saving)
+                      and checks an entry against a widget's spec
 TasksModel.js         taskbar settings spec + pure logic (which windows,
                       order, sizes, grouping)
 TrayModel.js          tray settings spec + pure logic (names, pins, overflow)
@@ -157,7 +159,13 @@ shaders/tint.frag     icon tint for mono/themed; .qsb is the compiled form
                       (rebuild with qsb from qt6-shadertools)
 minimize              minimize a window (Omarchy's, minus its floating check)
 tray-window           tray left click: the icon's process and its windows
+tests/run             every test (`tests/run quick` skips the widget test)
 tests/run.js          node tests for the .js files
+tests/widget.test.sh  the real top-bar widget and service, offscreen, on
+                      scratch files: dropdown, keyboard, saves, way back
+tests/scripts.test.sh minimize and tray-window against stand-in commands
+tests/mutate.js       plants tests/mutations.json one at a time; every
+                      mutant must fail a test (--all adds the widget test)
 dev/                  vclick.py (scripted clicks/drags), clicklog.py
 media/                README screenshots and GIFs
 branding/             logo, lockups, alternatives, BRANDING.md, build.py
@@ -183,7 +191,10 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
    fetches whatever URL it's given (review round 1, fixed in `d17665e`).
 5. **Windows hidden from screen capture are never captured.** Omarchy marks
    password managers `no_screen_share`; thumbnails show their icon and say so
-   instead (`ui/WindowPreview.qml`, `CaptureCache.js`).
+   instead (`ui/WindowPreview.qml`, `CaptureCache.js`). A check with no
+   clear answer ("window not found", a failed hyprctl) captures nothing
+   either, and an answer is only ever filed under the window it was asked
+   for (R1-L5). Hyprland itself also blanks such windows.
 6. **No motion or noise by default.** Titles are cut off with "…" and never
    scroll; nothing flashes for attention; every animation goes through
    `Style.duration()` so reduced motion turns it off; slide-in reveal is an
@@ -195,8 +206,12 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 8. **Minimize the way Omarchy does:** the window goes to `special:minimized`
    with the tag `omarchy-minimized-from-<workspace id>`. Omarchy's own
    minimize, Latch and Transom all read it; don't invent another protocol.
-9. **A `skip-taskbar` window still gets a button once minimized.** Otherwise
-   nothing on screen could bring it back.
+9. **A minimized window always has a button somewhere** (`belongsTo`
+   checks for minimized first): a dialog, a hidden or `skip-taskbar`
+   window, one with no minimized-from tag, or one minimized on a screen
+   with no bar. Otherwise nothing on screen could bring it back (R1-H1,
+   R1-H2, R1-M2: each of those once vanished). `minimize` doesn't move a
+   window whose tag didn't land.
 10. **`isMaximized` means Hyprland's real maximized state (`fullscreen` 1).**
     Only those need the stacking workaround; a resize-style maximize (Sash)
     takes the plain raise.
@@ -205,11 +220,13 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     `Array.isArray` is false. Use `toList()` (`Settings.js`,
     `TasksModel.js`). The first version hid every minimized window this way.
 12. **Re-read window data on events, never on title changes.**
-    `lastIpcObject` (tags, floating, fullscreen) only updates on
-    `Hyprland.refreshToplevels()`. `Service.qml` refreshes after the events in
-    `refreshEvents`, with a timer that's started, not restarted, so a stream
-    of events can't starve it. Titles are left out: an animated title (a
-    coding agent's spinner) changes several times a second.
+    `lastIpcObject` (tags, floating, fullscreen, hidden) only updates on
+    `Hyprland.refreshToplevels()`. `Service.qml` refreshes after
+    `TasksModel.REFRESH_EVENTS` (window events, pins, groups, the active
+    window), with a timer that's started, not restarted
+    (`TasksModel.startsRefresh`), so a stream of events can't starve it.
+    Titles are left out: an animated title (a coding agent's spinner)
+    changes several times a second.
 13. **A save must not rebuild widgets.** `BarWindow.qml` keeps each section in
     a ListModel keyed by widget id and moves or updates entries in place;
     rebuilding every widget made Omarchy's hosted widgets re-register their
@@ -225,17 +242,38 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     then apply to this bar too, so it always looks like the top one.
 16. **The top-bar widget stays optional, and a hidden taskbar always has a
     way back.** Transom must work the same with no widget anywhere. The bar
-    option `visible` only hides the taskbar while the widget is on a bar
-    (`Service.widgetOnBar`: in Omarchy's layout, or a live copy counting
-    itself) with its icon showing (`topBarIcon`). When the widget goes, the
-    taskbar shows and the saved "hidden" is cleared, so re-adding the widget
-    doesn't hide it by surprise (never at start-up, before the shell has
-    handed over its config); hiding the icon shows the taskbar in the same
-    save. Transom reads shell.json (the plugins list) but never writes it.
+    option `visible` only hides the taskbar while a live copy of the widget
+    has counted itself (`Service.widgetLive`), with its icon showing
+    (`topBarIcon`). For the first 10 s after start-up Omarchy's layout
+    listing it counts too, so a hidden taskbar doesn't flash up at every
+    start; after that a widget listed but never drawn (broken by an update,
+    a replacement bar) is no way back (R1-M1). Transom's own widget is never
+    hosted on its own bar (`Hosting.canHost`, R1-H3). When the last copy
+    has been gone a second, the taskbar shows and a saved "hidden" is
+    cleared; hiding the icon shows the taskbar in the same save. On an
+    install Omarchy lists only on the bar, removing the widget stops
+    Transom outright, so it comes back as it was, icon included. Transom
+    reads shell.json (the plugins list) but never writes it.
 17. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
-    untrusted text reaching Hyprland's Lua. Quote shell arguments with
-    `Util.shellQuote`.
+    untrusted text reaching Hyprland's Lua. `Service.target()` accepts only
+    `0x` + hex. Quote shell arguments with `Util.shellQuote`.
+18. **Never save over a settings file Transom couldn't fully read.**
+    `Settings.readLayout` reports invalid JSON, a section that isn't a
+    list, entries without an id; while any is open (`settingsError`)
+    `saveLayout` refuses, the bar menu and the dropdown say so, and one
+    notification is sent. Keys Transom doesn't know are kept. A failed save
+    rolls memory back to what's on disk (`saveError`). Why: a typo made the
+    next click replace the whole file with the defaults (R1-H4).
+19. **Helpers have deadlines, and a late or failed answer does nothing.**
+    `tray-window` runs under `timeout 3`, each `busctl --timeout=1`, with
+    `--` before app-chosen bus names. A tray click whose lookup answers
+    after 1.5 s is dropped, and a failed lookup never reads as "nothing
+    changed, launch it" (R1-M3: one hung app made a click land a minute
+    later).
+20. **Unreleased work stays on a branch.** `omarchy plugin update` pulls
+    main, so main is what every user runs, marketplace verification or not
+    (R1-M4).
 
 ## How it works, in one screen
 
@@ -249,11 +287,13 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
   bit 2), not under a maximized one.
 - **Layout and settings:** `transom.json` holds `left`, `center`, `right`
   (lists of `{ id, enabled?, ...settings }`) and a `bar` object (bar-wide
-  options, `barSettingsSpec`). `Settings.parse` checks each entry against its
-  widget's spec; bad values fall back to defaults and are logged, so a typo
-  never breaks the bar. Menus save through `updateWidget` → `saveLayout`,
-  which writes the whole file; `layoutText` stops our own write coming back
-  through the file watcher as a second rebuild.
+  options, `barSettingsSpec`). `Settings.readLayout` reads the file and
+  reports anything it can't use; while it has a problem nothing is saved
+  (rule 18). `Settings.parse` checks each entry against its widget's spec;
+  bad values fall back to defaults and are logged. Menus save through
+  `updateWidget` → `saveLayout`, which writes the whole file; `layoutText`
+  stops our own write coming back through the file watcher as a second
+  rebuild.
 - **Widgets** are loaded by `WidgetSlot` (BarWindow.qml) from the `widgets`
   map in Service.qml, or `widgets/OmarchyWidget.qml` for an Omarchy widget
   id. A widget can declare `bar`, `panel`, `settings`, `screenCenterX`, and
@@ -330,6 +370,26 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   itself there.
 - **Omarchy's bar doesn't claim right or middle clicks on widgets** (only
   its custom-command widget uses them), so the widget can.
+- **The widget catalogue** Omarchy hands a service (`barWidgetRegistry`)
+  lists every bar widget, other plugins' and Transom's own included; each
+  entry's `metadata.firstParty` says whether it's Omarchy's. Another
+  plugin's widget hosted on Transom's bar gets Transom's scoped shell, so
+  `serviceFor` finds nothing for it (only widgets with a fallback like
+  Locus's `Registry.js` work).
+- **`hyprctl` exits 0 even when Hyprland refuses**: read the reply.
+  `hyprctl dispatch` answers `ok` (even for an address that no longer
+  exists); `hyprctl getprop` answers `window not found` with exit 0.
+- **`busctl` reads a positional starting with `-` as an option** unless
+  `--` comes first; D-Bus names apps register can start with `-`.
+- **Hyprland groups:** a group's other tabs are windows with `hidden: true`,
+  and switching tabs changes only the active window (hence
+  `activewindowv2` among the refresh events).
+- **Omarchy's "Bottom Bar" setting** (`omarchy-bar position bottom`) puts
+  its bar on the bottom edge too; Transom always takes the bottom, so the
+  two stack there (R1-M5, a known limit; following Omarchy's bar to the
+  other edge would need every popup to open downward).
+- **FileView** (Quickshell 0.3.2) sends `saved` or `saveFailed` after
+  `setText`, and nothing for text that's unchanged.
 - **Quickshell caches QML.** Saving a file in the plugin folder makes Omarchy
   reload the plugin, but already-loaded QML stays cached, so the old code
   runs. `omarchy restart shell` after any QML change (it refuses while the
@@ -357,9 +417,29 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 ## Working on it
 
-- **Tests:** `node tests/run.js` (105 tests, about a second, nothing on
-  screen). They cover the pure `.js` logic only; QML is checked when the
-  shell loads it, so watch the log after a restart. Run before every commit.
+- **Tests:** `tests/run` before every commit (about 20 s, nothing on
+  screen, nothing written outside temp folders):
+  - `node tests/run.js` (119 tests): every pure `.js` file.
+  - `tests/scripts.test.sh` (9 checks): `minimize` and `tray-window`
+    against stand-in `hyprctl` and `busctl` that log and answer from
+    fixtures.
+  - `tests/widget.test.sh` (39 checks): the real `BarWidget.qml` and
+    `Service.qml` in a throwaway Quickshell on Qt's offscreen platform,
+    with HOME and the XDG folders in a temp folder, no Hyprland connection,
+    `BarWindow.qml` stubbed (layer-shell windows can't exist offscreen) and
+    Omarchy's `KeyboardPanel` stubbed (as Quiesce's panel test does).
+    Every command Transom could run is a logging stand-in, and the test
+    fails if any but a notification ran.
+  - **Mutation check:** `node tests/mutate.js` (`--all` adds the widget
+    test, about 15 min) plants each of the 47 entries in
+    `tests/mutations.json` on a scratch copy and expects a test to fail.
+    It runs the unmutated suite first and stops if that fails. Add an
+    entry for every fix.
+  - **Not covered by any test** (checked live, or by reading): the bars
+    themselves (`BarWindow.qml`, auto-hide, drag), the taskbar's and tray's
+    QML (`Tasks.qml` actions, `Tray.qml`'s click timing and stale-result
+    drop, `ShowDesktop.qml`, `WindowPreview.qml`'s privacy check),
+    `BarMenu.qml`, and Hyprland dispatches.
 - **Try a change live:** commit on a branch in the working copy, then
   ```bash
   live=~/.config/omarchy/plugins/io.github.cwilliams5.transom

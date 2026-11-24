@@ -32,7 +32,8 @@ across a window. This one sits across all of yours.)
 - **Taskbar buttons for those windows,** in the order you drag them into.
   - Click to focus, middle-click to close, scroll to step through windows.
   - Windows minimized with Super+M stay on their workspace's taskbar,
-    dimmed, until you click them back.
+    dimmed, until you click them back (from a screen without a bar, on the
+    bars there are: a minimized window always has a button somewhere).
   - Right-click for New window, Pin to quick launch, Minimize, Move to
     workspace, Float/Tile, and Close.
   - Optional: *combine buttons* (never, when full, always) and live *window
@@ -151,6 +152,8 @@ Then, if you want everything back as it was:
   Omarchy's menu always does.
 - **Omarchy widgets on two bars** (two screens, or top and bottom): their
   keyboard shortcuts open the first copy's panel.
+- **Omarchy's bar at the bottom:** Transom always takes the bottom edge, so
+  with Omarchy's "Bottom Bar" setting the two bars stack there.
 - English only, for now.
 
 ---
@@ -222,11 +225,17 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | ⤷ Windows-style left click | Its `replaceLeftClick` |
 | ⤷ Show hidden: *name* | One per hidden icon; brings it back |
 | Show desktop ✓ | Show or hide the show-desktop button |
-| Omarchy widgets › | A page listing every Omarchy bar widget: ✓ puts it on this bar. "· top bar" marks the ones also on Omarchy's bar. |
+| Omarchy widgets › | A page listing Omarchy's own bar widgets: ✓ puts it on this bar. "· top bar" marks the ones also on Omarchy's bar. |
 | Task manager | Omarchy's Activity (btop), as Super+Shift+T |
 | Transom settings… | Opens `transom.json` in the editor |
 
-Toggles keep the menu open; the last two close it.
+Toggles keep the menu open, except "Show on all displays" (it can remove
+the bar the menu is on); the last two rows close it.
+
+While `transom.json` has a problem (invalid JSON, a section that isn't a
+list, an entry without an `id`), a first row says so and opens the file:
+nothing is saved over a file Transom couldn't fully read, so your edits
+are safe. A notification says what's wrong, once.
 
 ## Top-bar widget (optional)
 
@@ -241,7 +250,11 @@ as its bottom rail (left out while the taskbar is hidden).
 **Hiding the taskbar** (the bar option `visible`) takes it off every
 screen, and windows get the space back. It only works while the icon is on
 the top bar, since its switch is how you get the taskbar back: take the
-widget off the bar, or hide its icon, and the taskbar comes back by itself. From a terminal or a key binding:
+widget off the bar, or hide its icon, and the taskbar comes back by itself
+(on an install where removing the widget turns Transom off, it comes back
+as it was when you put the widget back, icon included). If the widget
+doesn't show up within 10 seconds of the shell starting, the taskbar shows
+anyway. From a terminal or a key binding:
 `omarchy-shell transom show`, `hide` or `toggle` (and `omarchy-shell
 transom widget` says what Transom knows about its widget). For example, in your
 Hyprland config (pick any free keys):
@@ -360,8 +373,10 @@ windows still have a picture (Hyprland keeps their last frame); a window that
 gives none shows "No preview". Windows hidden from screen capture on purpose
 (Omarchy marks password managers like Bitwarden and 1Password
 `no_screen_share`) are never captured: their thumbnail is the app's icon and
-"Hidden from screen capture". Pictures are only captured while shown
-(Quickshell's `ScreencopyView`, `ui/WindowPreview.qml`).
+"Hidden from screen capture". If Hyprland gives no clear answer about a
+window, it isn't captured either ("No preview"). Pictures are captured only
+while a thumbnail is on its way or shown (Quickshell's `ScreencopyView`,
+`ui/WindowPreview.qml`).
 
 ## Quick launch (`quicklaunch`)
 
@@ -597,9 +612,14 @@ model keyed by widget id), so only the moved one changes place.
 
 ## Omarchy's own widgets (network, power, bluetooth…)
 
-Any of Omarchy's bar widgets can sit on the bottom bar, unchanged. Tick it on
-the bar menu's "Omarchy widgets" page, or add its id to a section, e.g.
-`{ "id": "omarchy.network" }` after the tray. Ids are the
+Any of Omarchy's own bar widgets can sit on the bottom bar, unchanged. Tick
+it on the bar menu's "Omarchy widgets" page, or add its id to a section,
+e.g. `{ "id": "omarchy.network" }` after the tray. Other plugins' widgets
+aren't offered: on this bar they get Transom's access to the shell, not
+their own, so most can't reach their plugin. (Typed into the file, one
+still loads, which suits those that find their plugin another way.)
+Transom's own top-bar widget is never hosted here: it would hide along
+with the taskbar it brings back. Ids are the
 same as the top bar's (`omarchy plugin list`). It's the same widget code Omarchy's
 top bar runs, with its real panel, which opens upward.
 

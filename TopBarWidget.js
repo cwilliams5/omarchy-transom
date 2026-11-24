@@ -5,9 +5,9 @@
 var PLUGIN_ID = "io.github.cwilliams5.transom"
 
 // Whether Transom's widget sits in a bar layout: Omarchy's bar.layout from
-// shell.json, sections of widget ids or { id, ... } entries. Its icon may
-// be switched off (showIcon); it still counts, since the widget's settings
-// in Omarchy's bar are where that switch comes back on.
+// shell.json, sections of widget ids or { id, ... } entries. Only trusted
+// for a short while at start-up (Service.widgetOnBar): after that a live
+// copy of the widget must say it's there.
 function inLayout(layout) {
   if (!layout || typeof layout !== "object") return false
   for (var section in layout) {
@@ -50,9 +50,9 @@ function status(shown, autohide) {
   return autohide ? "Taskbar hides until the pointer reaches the bottom" : "Taskbar shown"
 }
 
-// The dropdown's choices. Values are the settings' own (TasksModel.SETTINGS
-// windows and combine; the bar option iconStyle); labels use the bar
-// menu's words.
+// The choices the dropdown and the bar menu offer (the menu lowercases the
+// labels). Values are the settings' own: TasksModel.SETTINGS windows and
+// combine; the bar options iconStyle and windowIconStyle.
 var WINDOWS = [
   { value: "workspace", label: "This workspace" },
   { value: "monitor", label: "This screen" },

@@ -122,7 +122,13 @@ PanelWindow {
   ListModel { id: rightModel }
 
   readonly property var shownLayout: window.bar ? window.bar.shownLayout : ({})
-  onShownLayoutChanged: window.syncSections()
+  onShownLayoutChanged: {
+    window.syncSections()
+    // A save that took away the widget being dragged (a menu, another
+    // screen): its drag handler is gone, so end the drag here, or auto-hide
+    // would wait for it for ever.
+    if (window.dragId !== "" && !window.entryIn("left", window.dragId) && !window.entryIn("right", window.dragId)) window.endDrag(false)
+  }
   Component.onCompleted: window.syncSections()
 
   function syncSections() {

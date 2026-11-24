@@ -41,6 +41,9 @@ Item {
   property bool checked: false
   // Captured for a while and still no picture.
   property bool gaveUp: false
+  // The check gave no answer (hyprctl failed, or the window had gone): no
+  // capture then, "No preview" instead (strict review R1-L5: it captured).
+  property bool unknown: false
 
   readonly property string address: {
     var value = toplevel ? String(toplevel.address || "") : ""
@@ -51,32 +54,65 @@ Item {
 
   onCacheKeyChanged: {
     preview.gaveUp = false
+    preview.unknown = false
     var known = CaptureCache.lookup(preview.cacheKey)
     preview.protectedWindow = known === true
     preview.checked = known !== undefined
+    preview.ask()
+  }
+
+  // Asks Hyprland whether the window is hidden from capture. While a check
+  // is busy (until its answer is read) it tries again shortly: a Process
+  // can't be restarted while it runs, and `asked` only changes between
+  // checks, so an answer is always filed under the window it was for.
+  function ask() {
     if (!preview.address || preview.checked) return
+    if (privacy.busy) {
+      askAgain.restart()
+      return
+    }
+    privacy.busy = true
     privacy.asked = preview.cacheKey
     privacy.command = ["hyprctl", "getprop", "address:" + preview.address, "no_screen_share"]
     privacy.running = true
   }
 
+  Timer {
+    id: askAgain
+    interval: 50
+    onTriggered: preview.ask()
+  }
+
   Process {
     id: privacy
     property string asked: ""
+    property bool busy: false
     stdout: StdioCollector {
       onStreamFinished: {
-        var hidden = text.trim() === "true"
-        CaptureCache.remember(privacy.asked, hidden)
+        // Only "true" or "false" is an answer; anything else ("window not
+        // found", an error) isn't, and isn't remembered.
+        var answer = text.trim()
+        var known = answer === "true" || answer === "false"
+        if (known) CaptureCache.remember(privacy.asked, answer === "true")
         if (privacy.asked !== preview.cacheKey) return
-        preview.protectedWindow = hidden
+        privacy.busy = false
+        if (privacy.asked !== preview.cacheKey) return
+        preview.protectedWindow = answer === "true"
+        preview.unknown = !known
         preview.checked = true
       }
     }
-    // hyprctl failing (an old Hyprland without the property): capture as usual.
-    onExited: function(code) { if (code !== 0 && privacy.asked === preview.cacheKey) preview.checked = true }
+    onExited: function(code) {
+      if (code !== 0 && privacy.asked === preview.cacheKey) {
+        preview.unknown = true
+        preview.checked = true
+      }
+      // The answer is normally read first; if it never comes, free the check.
+      Qt.callLater(function() { privacy.busy = false })
+    }
   }
 
-  readonly property bool capturing: checked && !protectedWindow
+  readonly property bool capturing: checked && !protectedWindow && !unknown
   readonly property bool hasContent: capturing && view.hasContent
   readonly property real sourceWidth: view.sourceSize.width
   readonly property real sourceHeight: view.sourceSize.height
@@ -109,7 +145,7 @@ Item {
 
   // No picture, for a known reason: the app's icon and why.
   Column {
-    visible: preview.protectedWindow || (preview.gaveUp && !preview.hasContent)
+    visible: preview.protectedWindow || preview.unknown || (preview.gaveUp && !preview.hasContent)
     anchors.centerIn: parent
     spacing: Style.space(8)
 

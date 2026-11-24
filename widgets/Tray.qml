@@ -57,8 +57,9 @@ Item {
     return out
   }
 
-  // The top bar's layout and this bar's, to spot icons a widget stands in for.
-  readonly property var layouts: bar ? [bar.topBarLayout, bar.layout] : []
+  // The top bar's layout and this bar's (only the widgets switched on), to
+  // spot icons a widget stands in for (strict review R1-L7).
+  readonly property var layouts: bar ? [bar.topBarLayout, bar.shownLayout] : []
 
   // { bar: [items], overflow: [items] }
   readonly property var arranged: {
@@ -187,22 +188,41 @@ Item {
     tray.lookUp(hoverLookup, item, "hover")
   }
 
+  // ./tray-window under an overall deadline: 3 s, then killed. A click's
+  // lookup that answers later than staleMs is dropped rather than acted on
+  // (strict review R1-M3: one hung app made the step-in land a minute late).
+  readonly property int staleMs: 1500
+
   function lookUp(process, item, phase) {
     process.item = item
     process.phase = phase
-    process.command = [tray.bar.pluginDir + "/tray-window", String(item.id || ""), tray.nameOf(item)]
+    process.startedAt = Date.now()
+    process.command = ["timeout", "-k", "1", "3", tray.bar.pluginDir + "/tray-window", String(item.id || ""), tray.nameOf(item)]
     process.running = true
   }
 
   function lookedUp(process, text) {
-    var view = {}
-    try { view = JSON.parse(text) } catch (error) { view = {} }
+    var view = null
+    try { view = JSON.parse(text) } catch (error) { view = null }
+    // A lookup that failed or timed out: never read as "nothing changed".
+    if (!view || typeof view !== "object" || Array.isArray(view)) view = { failed: true }
+    var late = Date.now() - process.startedAt > tray.staleMs
     if (process.phase === "hover") {
-      tray.hoverView = { item: process.item, view: view, at: Date.now() }
+      tray.hoverView = view.failed ? null : { item: process.item, view: view, at: Date.now() }
     } else if (process.phase === "before") {
+      if (late) {
+        console.log("transom: tray " + tray.nameOf(process.item) + " -> no answer in time; the click is dropped")
+        tray.clickItem = null
+        return
+      }
       tray.clickBefore = view
       tray.clickAndWait()
     } else if (process.phase === "after") {
+      if (late) {
+        console.log("transom: tray " + tray.nameOf(process.item) + " -> no answer in time; the app had its click")
+        tray.clickItem = null
+        return
+      }
       tray.stepIn(view)
     }
   }
@@ -211,6 +231,7 @@ Item {
     id: lookup
     property var item: null
     property string phase: ""
+    property double startedAt: 0
     stdout: StdioCollector {
       onStreamFinished: tray.lookedUp(lookup, text)
     }

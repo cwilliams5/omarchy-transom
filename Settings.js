@@ -80,6 +80,50 @@ function parse(entry, spec) {
   return { settings: settings, problems: problems }
 }
 
+// Reads the settings file's text (transom.json, or defaults.json):
+// { layout, problems }. layout is null when the text isn't a JSON object.
+// Otherwise: each section in sections ("left", "center", "right") as a list
+// of entries with a string id; "bar" when it's an object; and every other
+// top-level key as it is, so a save never drops it. Anything left out is
+// said in problems. The service refuses to save while there are any, so a
+// file it doesn't fully understand is never overwritten (strict review
+// R1-H4: a typo made the next click replace the whole file).
+function readLayout(text, sections) {
+  var parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    return { layout: null, problems: ["it isn't valid JSON (" + (error && error.message ? error.message : error) + ")"] }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { layout: null, problems: ["it isn't a JSON object"] }
+  var own = function(key) { return Object.prototype.hasOwnProperty.call(parsed, key) }
+  var layout = {}
+  var problems = []
+  for (var key in parsed) {
+    if (!own(key) || key === "__proto__" || key === "bar" || sections.indexOf(key) >= 0) continue
+    layout[key] = parsed[key]
+  }
+  if (own("bar")) {
+    if (parsed.bar && typeof parsed.bar === "object" && !Array.isArray(parsed.bar)) layout.bar = parsed.bar
+    else problems.push("\"bar\" must be an object")
+  }
+  for (var s = 0; s < sections.length; s++) {
+    var name = sections[s]
+    layout[name] = []
+    if (!own(name)) continue
+    if (!Array.isArray(parsed[name])) {
+      problems.push("\"" + name + "\" must be a list")
+      continue
+    }
+    layout[name] = parsed[name].filter(function(entry) {
+      return !!entry && typeof entry === "object" && typeof entry.id === "string" && entry.id !== ""
+    })
+    var dropped = parsed[name].length - layout[name].length
+    if (dropped > 0) problems.push("\"" + name + "\" has " + dropped + (dropped === 1 ? " entry" : " entries") + " without an \"id\"")
+  }
+  return { layout: layout, problems: problems }
+}
+
 // Every setting's default, as a plain object.
 function defaults(spec) {
   var out = {}
@@ -88,5 +132,5 @@ function defaults(spec) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { toList: toList, parse: parse, defaults: defaults }
+  module.exports = { toList: toList, parse: parse, defaults: defaults, readLayout: readLayout }
 }

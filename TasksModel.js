@@ -34,6 +34,19 @@ var SETTINGS = {
 // left, as omarchy-minimized-from-<id>.
 var MINIMIZED_WORKSPACE = "special:minimized"
 var FROM_TAG = /^omarchy-minimized-from-(-?\d+)\*?$/
+// Hyprland events after which window data (tags, floating, fullscreen,
+// hidden) is re-read. Title changes are left out on purpose: an animated
+// title (a coding agent's spinner) changes several times a second.
+var REFRESH_EVENTS = ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin",
+  "togglegroup", "moveintogroup", "moveoutofgroup", "activewindowv2"]
+
+// Whether an event starts the refresh timer: one of REFRESH_EVENTS, and only
+// when it isn't already running. Started, never restarted, so a steady
+// stream of events can't keep pushing the refresh back.
+function startsRefresh(name, timerRunning) {
+  return !timerRunning && REFRESH_EVENTS.indexOf(String(name || "")) >= 0
+}
+
 // A window that asks to be left off taskbars. Hyprland has no such
 // convention of its own: Legato tags its video window with it, and a rule
 // of your own can tag anything (`tag = "+skip-taskbar"`). A tag a window
@@ -60,6 +73,19 @@ function minimizedFrom(tags) {
     if (match) return Number(match[1])
   }
   return null
+}
+
+// The workspaces on screens that have no bar: workspaces is [{ id,
+// monitorName }], barScreenNames the screens that have one.
+function barlessWorkspaces(workspaces, barScreenNames) {
+  var names = toList(barScreenNames) || []
+  var out = []
+  var list = toList(workspaces) || []
+  for (var i = 0; i < list.length; i++) {
+    var monitor = list[i] && list[i].monitorName
+    if (monitor && names.indexOf(String(monitor)) < 0) out.push(list[i].id)
+  }
+  return out
 }
 
 // Whether a window's tags ask taskbars to leave it out.
@@ -102,6 +128,9 @@ function describe(toplevel) {
 //   workspaceId        the workspace the taskbar's screen is showing
 //   monitorWorkspaces  ids of the workspaces on the taskbar's screen
 //   knownWorkspaces    ids of every workspace that exists right now
+//   barlessWorkspaces  ids of the workspaces on screens with no Transom bar
+//                      (bar option screens), whose minimized windows have
+//                      no taskbar of their own
 //   showMinimized      false when minimized windows are hidden
 //
 // workspace: windows on the shown workspace, plus those minimized from it.
@@ -109,24 +138,31 @@ function describe(toplevel) {
 //            from one. A window minimized from a workspace that no longer
 //            exists (Hyprland drops empty ones) shows on every screen.
 // all:       every window, plus every minimized one.
-// Dialogs (windows with a parent), unmapped and hidden windows never show,
-// nor does anything on other special workspaces (scratchpad, agent console),
-// nor a window tagged skip-taskbar (a picture-in-picture video, say) unless
-// it was minimized, so it can still be brought back.
+//
+// A minimized window always has a button somewhere, because the taskbar is
+// the only way back to it (as in Omarchy's dock): dialogs, hidden windows
+// and skip-taskbar ones included. One minimized from a screen with no bar,
+// or with no minimized-from tag (another tool's minimize, or a tag that
+// failed), shows on every bar.
+// Otherwise dialogs (windows with a parent), unmapped and hidden windows
+// never show, nor does anything on other special workspaces (scratchpad,
+// agent console), nor a window tagged skip-taskbar (a picture-in-picture
+// video, say).
 function belongsTo(window, view) {
-  if (!window || !window.address || window.hasParent) return false
-  if (window.mapped === false || window.hidden === true) return false
+  if (!window || !window.address) return false
   var mode = view.mode || "workspace"
   var onMonitor = view.monitorWorkspaces || []
   var name = String(window.workspaceName || "")
   if (name === MINIMIZED_WORKSPACE) {
     if (view.showMinimized === false) return false
     var from = minimizedFrom(window.tags)
-    if (from === null) return false
-    if (mode === "all") return true
+    if (mode === "all" || from === null) return true
+    if ((view.barlessWorkspaces || []).indexOf(from) >= 0) return true
     if (mode === "monitor") return onMonitor.indexOf(from) >= 0 || (view.knownWorkspaces || []).indexOf(from) < 0
     return from === view.workspaceId
   }
+  if (window.hasParent) return false
+  if (window.mapped === false || window.hidden === true) return false
   if (name.indexOf("special:") === 0) return false
   if (skipsTaskbar(window.tags)) return false
   if (mode === "all") return true
@@ -314,6 +350,9 @@ if (typeof module !== "undefined") {
     minimizedFrom: minimizedFrom,
     normalizeAddress: normalizeAddress,
     belongsTo: belongsTo,
+    REFRESH_EVENTS: REFRESH_EVENTS,
+    startsRefresh: startsRefresh,
+    barlessWorkspaces: barlessWorkspaces,
     skipsTaskbar: skipsTaskbar,
     applyOrder: applyOrder,
     pruneOrder: pruneOrder,

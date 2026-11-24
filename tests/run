@@ -1,0 +1,14 @@
+#!/bin/bash
+# Every test: the pure logic (node), the shell helpers (stand-in commands),
+# and the top-bar widget with the real service (offscreen, about 20 s).
+# Nothing reaches the desktop. `tests/run quick` skips the widget test.
+cd "$(dirname "$0")/.." || exit 1
+status=0
+node tests/run.js | grep -v '^ok' || true
+node tests/run.js >/dev/null || status=1
+bash tests/scripts.test.sh | grep -v '^ok'; [ "${PIPESTATUS[0]}" = 0 ] || status=1
+if [ "${1:-}" != quick ]; then
+  bash tests/widget.test.sh | grep -v '^ok'; [ "${PIPESTATUS[0]}" = 0 ] || status=1
+fi
+[ $status = 0 ] && echo "every test passed" || echo "FAILED"
+exit $status

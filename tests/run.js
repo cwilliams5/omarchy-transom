@@ -1,4 +1,5 @@
-// Tests for TasksModel.js. Run: node tests/run.js
+// Tests for the plugin's pure logic (every .js file). Run: node tests/run.js
+// The QML (widget, service) is tested by tests/widget.test.sh.
 const assert = require("assert")
 const path = require("path")
 const M = require(path.join(__dirname, "..", "TasksModel.js"))
@@ -9,6 +10,7 @@ const Q = require(path.join(__dirname, "..", "QuickLaunchModel.js"))
 const I = require(path.join(__dirname, "..", "IconSource.js"))
 const W = require(path.join(__dirname, "..", "TopBarWidget.js"))
 const IS = require(path.join(__dirname, "..", "IconStyle.js"))
+const H = require(path.join(__dirname, "..", "Hosting.js"))
 
 let failures = 0
 function test(name, fn) {
@@ -209,12 +211,25 @@ test("a window tagged skip-taskbar gets no button, in any mode, unless minimized
   assert.ok(!M.skipsTaskbar(undefined))
 })
 
-test("window data is re-read after a pin too (a pinned window's tags can change with it)", () => {
-  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
-  const events = service.match(/refreshEvents: \[([^\]]*)\]/)[1]
-  for (const name of ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin"]) {
-    assert.ok(events.includes('"' + name + '"'), name)
+test("window data is re-read after a pin and group changes, never on a title change", () => {
+  for (const name of ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin", "togglegroup", "moveintogroup", "moveoutofgroup", "activewindowv2"]) {
+    assert.ok(M.startsRefresh(name, false), name)
   }
+  for (const name of ["windowtitle", "windowtitlev2", "", "constructor"]) assert.ok(!M.startsRefresh(name, false), name)
+})
+
+test("the refresh is started, never restarted, so a stream of events can't starve it", () => {
+  assert.ok(!M.startsRefresh("openwindow", true))
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  assert.ok(service.includes("refreshTimer.running)) refreshTimer.start()") && service.includes("TasksModel.startsRefresh("), "Service.qml uses it")
+})
+
+test("a tray click whose lookup failed or timed out is left to the app (R1-M3)", () => {
+  const same = { windows: [], focused: null, window: null }
+  assert.strictEqual(T.afterClick({ failed: true }, same, { hasLauncher: true }), "app")
+  assert.strictEqual(T.afterClick(same, { failed: true }, { hasLauncher: true }), "app")
+  assert.strictEqual(T.afterClick(null, same, { hasLauncher: true }), "app")
+  assert.strictEqual(T.afterClick(same, same, { hasLauncher: true }), "launch", "a real unchanged view still steps in")
 })
 
 test("monitor mode: every workspace on this screen", () => {
@@ -241,8 +256,52 @@ test("hidden minimized windows stay off", () => {
   assert.ok(!M.belongsTo(minimizedFrom(1), view({ mode: "all", showMinimized: false })))
 })
 
-test("a minimized window with no tag belongs nowhere", () => {
-  assert.ok(!M.belongsTo(win({ workspaceId: -97, workspaceName: "special:minimized" }), view({ mode: "all" })))
+test("a minimized window with no tag shows on every bar (R1-M2: it had no way back)", () => {
+  const untagged = win({ workspaceId: -97, workspaceName: "special:minimized" })
+  for (const mode of ["workspace", "monitor", "all"]) assert.ok(M.belongsTo(untagged, view({ mode })), mode)
+  assert.ok(!M.belongsTo(untagged, view({ showMinimized: false })), "unless minimized windows are hidden")
+})
+
+test("a minimized dialog or hidden window still gets a button (R1-H1)", () => {
+  for (const extra of [{ hasParent: true }, { hidden: true }, { mapped: false }]) {
+    const minimized = Object.assign(minimizedFrom(1), extra)
+    assert.ok(M.belongsTo(minimized, view({ workspaceId: 1 })), JSON.stringify(extra))
+    assert.ok(!M.belongsTo(minimized, view({ workspaceId: 2 })), "only on its own workspace")
+  }
+  // Through describe(), the real path: a dialog (wayland.parent) on special:minimized.
+  const dialog = M.describe({ address: "0x1", workspace: { id: -97, name: "special:minimized" },
+    wayland: { parent: {} }, lastIpcObject: { tags: ["omarchy-minimized-from-1"], mapped: true, hidden: false } })
+  assert.ok(M.belongsTo(dialog, view({ workspaceId: 1 })))
+})
+
+test("a window minimized from a screen with no bar shows on the bars there are (R1-H2)", () => {
+  const away = minimizedFrom(3)
+  for (const mode of ["workspace", "monitor"]) {
+    assert.ok(!M.belongsTo(away, view({ mode, workspaceId: 1, monitorWorkspaces: [1, 2] })), mode + ": not without the barless list")
+    assert.ok(M.belongsTo(away, view({ mode, workspaceId: 1, monitorWorkspaces: [1, 2], barlessWorkspaces: [3] })), mode)
+  }
+  const workspaces = [{ id: 1, monitorName: "eDP-1" }, { id: 3, monitorName: "DP-2" }, { id: 4, monitorName: "DP-2" }, { id: 5, monitorName: "" }]
+  assert.deepStrictEqual(M.barlessWorkspaces(workspaces, ["eDP-1"]), [3, 4])
+  assert.deepStrictEqual(M.barlessWorkspaces(workspaces, ["eDP-1", "DP-2"]), [])
+  assert.deepStrictEqual(M.barlessWorkspaces(null, null), [])
+})
+
+test("describe() carries the parent, hidden and mapped state through", () => {
+  const plain = { address: "abc", workspace: { id: 2, name: "2" }, lastIpcObject: { tags: [], mapped: true, hidden: false } }
+  assert.strictEqual(M.describe(plain).hasParent, false)
+  assert.strictEqual(M.describe(plain).address, "0xabc")
+  assert.ok(M.belongsTo(M.describe(plain), view({ workspaceId: 2 })))
+  const dialog = Object.assign({}, plain, { wayland: { parent: {} } })
+  assert.ok(!M.belongsTo(M.describe(dialog), view({ workspaceId: 2 })), "a dialog")
+  const hidden = Object.assign({}, plain, { lastIpcObject: { tags: [], mapped: true, hidden: true } })
+  assert.ok(!M.belongsTo(M.describe(hidden), view({ workspaceId: 2 })), "a hidden group tab")
+})
+
+test("the minimized-from tag must be exactly omarchy-minimized-from-<id> (or a rule's <id>*)", () => {
+  assert.strictEqual(M.minimizedFrom(["omarchy-minimized-from-3"]), 3)
+  assert.strictEqual(M.minimizedFrom(["omarchy-minimized-from-3*"]), 3)
+  assert.strictEqual(M.minimizedFrom(["omarchy-minimized-from-3x"]), null)
+  assert.strictEqual(M.minimizedFrom(["xomarchy-minimized-from-3"]), null)
 })
 
 test("other special workspaces, dialogs, unmapped and hidden windows are left out", () => {
@@ -684,7 +743,7 @@ test("icon sources: names, paths and ~ paths resolve locally", () => {
 test("top-bar widget: found in Omarchy's bar layout as an id or an entry", () => {
   assert.ok(W.inLayout({ right: ["omarchy.clock", W.PLUGIN_ID] }))
   assert.ok(W.inLayout({ left: [], right: [{ id: W.PLUGIN_ID }] }))
-  assert.ok(W.inLayout({ tray: [{ id: W.PLUGIN_ID, showIcon: false }] }), "a hidden icon still counts: its switch is in the bar settings")
+  assert.ok(W.inLayout({ tray: [{ id: W.PLUGIN_ID, extra: 1 }] }), "any section, any extra keys")
   assert.ok(!W.inLayout({ right: [{ id: "omarchy.clock" }, "io.github.cwilliams5.latch"] }))
   assert.ok(!W.inLayout({ right: [{ id: W.PLUGIN_ID + ".extra" }] }))
 })
@@ -741,13 +800,9 @@ test("manifest: the widget is optional and the service is still its own kind", (
   assert.ok(!("schema" in manifest.barWidget) && !("defaults" in manifest.barWidget))
 })
 
-test("the bar option topBarIcon exists, and hiding the icon brings the taskbar back", () => {
+test("the bar option topBarIcon exists and defaults to shown (behaviour: tests/widget.test.sh)", () => {
   const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
   assert.ok(/\n    topBarIcon: \{ default: true \},/.test(service))
-  assert.ok(service.includes('{ topBarIcon: false, visible: undefined }'), "one save hides the icon and shows the taskbar")
-  assert.ok(/taskbarShown: TopBarWidget\.taskbarShown\(root\.settings\.visible, root\.widgetOnBar && root\.topBarIconShown\)/.test(service))
-  // Hidden icon, hidden taskbar: never both.
-  assert.strictEqual(W.taskbarShown(false, true && false), true)
 })
 
 test("Transom in shell.json's plugins list: ids or entries, unknown when unreadable", () => {
@@ -851,6 +906,77 @@ test("the widget counts itself from service, not the serviceReady binding (stale
   assert.ok(!body.includes("serviceReady"), "syncCount must not read serviceReady")
   assert.ok(body.includes("widgetCopies += 1"))
   assert.ok(/onServiceChanged: root\.syncCount\(\)/.test(widget))
+})
+
+test("order: keys named like Object's own properties sort as unknown, not first", () => {
+  assert.deepStrictEqual(M.applyOrder(["b", "constructor", "a", "toString"], ["a", "b"]), ["a", "b", "constructor", "toString"])
+})
+
+test("drag: half a slot or more moves one place, less stays", () => {
+  assert.strictEqual(R.dropIndex(0, 50, 100, 5), 1)
+  assert.strictEqual(R.dropIndex(0, 49, 100, 5), 0)
+  assert.strictEqual(R.dropIndex(2, -60, 100, 5), 1)
+})
+
+test("icon exceptions match any case on both sides", () => {
+  const settings = { iconStyle: "mono", windowIconStyle: "mono", iconStyleExceptions: ["spot"],
+    iconStyleOn: { tray: true, quickLaunch: true, inactiveWindows: false, activeWindow: false } }
+  assert.strictEqual(IS.styleFor(settings, "tray", ["Spotify"]), "color")
+  settings.iconStyleExceptions = ["SPOT"]
+  assert.strictEqual(IS.styleFor(settings, "inactiveWindows", ["com.spotify.Client"]), "color")
+})
+
+test("tray names match the tooltip title alone too", () => {
+  assert.ok(T.matches({ id: "item_7", title: "", tooltipTitle: "Discord" }, "discord"))
+  assert.ok(!T.matches({ id: "item_7", title: "", tooltipTitle: "Discord" }, "slack"))
+})
+
+test("quick launch: a custom command never counts as the app it names", () => {
+  const apps = [{ command: "google-chrome --app=x", app: "google-chrome" }, "foot"]
+  assert.ok(!Q.isPinned(apps, "google-chrome"), "unpin must not remove a command entry")
+  assert.ok(Q.isPinned(apps, "foot"))
+})
+
+test("quick launch: only string args reach the command line", () => {
+  assert.deepStrictEqual(Q.normalizeItem({ app: "x", args: ["--a", 3, null, { b: 1 }, "--c"] }, 0).args, ["--a", "--c"])
+})
+
+test("hosting: never Transom's own widget, on its own bar it would hide its way back (R1-H3)", () => {
+  const catalogue = {
+    "omarchy.network": { metadata: { displayName: "Network", firstParty: true } },
+    "omarchy.tray": { metadata: { displayName: "Tray", firstParty: true } },
+    "io.github.cwilliams5.transom": { metadata: { displayName: "Transom", firstParty: false } },
+    "io.github.cwilliams5.locus": { metadata: { displayName: "Locus", firstParty: false } },
+    "omarchy.clock": { metadata: { displayName: "Clock", firstParty: true } }
+  }
+  assert.strictEqual(H.OWN_ID, W.PLUGIN_ID)
+  assert.ok(!H.canHost(W.PLUGIN_ID, catalogue))
+  assert.ok(H.canHost("omarchy.network", catalogue))
+  assert.ok(H.canHost("io.github.cwilliams5.locus", catalogue), "typed into transom.json, another plugin's widget still loads")
+  for (const odd of ["constructor", "toString", "", "omarchy.nope"]) assert.ok(!H.canHost(odd, catalogue), odd)
+  assert.ok(!H.canHost("omarchy.network", null))
+  assert.deepStrictEqual(H.menuList(catalogue).map((widget) => widget.id), ["omarchy.clock", "omarchy.network"],
+    "the menu offers Omarchy's own, sorted by name, without its tray")
+  assert.deepStrictEqual(H.menuList(null), [])
+})
+
+test("reading transom.json: what's kept, what's a problem (R1-H4)", () => {
+  const sections = ["left", "center", "right"]
+  const good = S.readLayout(JSON.stringify({ bar: { locked: true }, _note: "mine", left: [], center: [{ id: "tasks" }], right: [{ id: "tray" }] }), sections)
+  assert.deepStrictEqual(good.problems, [])
+  assert.strictEqual(good.layout._note, "mine", "unknown top-level keys survive, so a save keeps them")
+  assert.deepStrictEqual(good.layout.right, [{ id: "tray" }])
+  assert.deepStrictEqual(S.readLayout("{}", sections).layout, { left: [], center: [], right: [] }, "missing sections are empty, not problems")
+  for (const text of ["{,", "", "[]", "null", "3"]) {
+    const read = S.readLayout(text, sections)
+    assert.strictEqual(read.layout, null, text)
+    assert.strictEqual(read.problems.length, 1, text)
+  }
+  const odd = S.readLayout(JSON.stringify({ bar: [], left: {}, right: [{ id: "tray" }, { x: 1 }, null, { id: "" }] }), sections)
+  assert.deepStrictEqual(odd.problems, ['"bar" must be an object', '"left" must be a list', '"right" has 3 entries without an "id"'])
+  assert.deepStrictEqual(odd.layout.right, [{ id: "tray" }], "what could be read is still shown")
+  const proto = S.readLayout('{"__proto__": {"x": 1}, "right": []}', sections)
+  assert.strictEqual(Object.getPrototypeOf(proto.layout), Object.prototype, "a __proto__ key can't change the layout's prototype")
 })
 
 if (failures) {

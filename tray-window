@@ -2,7 +2,7 @@
 
 # For a Windows-style left click on a tray icon: which window its app has
 # open, and whether the icon is menu-only.
-# Usage: tray-window <tray icon id> [name]  (ids and names: omarchy-shell bottom-bar tray)
+# Usage: tray-window <tray icon id> [name]  (ids and names: omarchy-shell transom tray)
 #
 # Prints one JSON object:
 #   {"pid": 1234, "menuOnly": false, "window": "0x55…", "minimized": false,
@@ -23,28 +23,35 @@
 # The tray can't tell which app owns an icon by itself (Quickshell's tray
 # items carry no process id), and app names don't match window classes
 # reliably, so this goes by process instead.
+#
+# Every busctl call gives up after a second (sd-bus's default is 25 s, and
+# one hung app would stall every tray click), and the tray runs this under
+# an overall `timeout` too. Bus names come from apps: anything not shaped
+# like one is skipped, and "--" keeps the rest from reading as options.
 
 set -u
+bus_call() { busctl --user --json=short --timeout=1 -- "$@" 2>/dev/null; }
 want=${1:-}
 name=${2:-}
 none='{"pid": null, "menuOnly": false, "window": null, "minimized": false, "windows": [], "focused": null}'
 
-items=$(busctl --user --json=short get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
-  org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems 2>/dev/null | jq -r '.data[]?')
+items=$(bus_call get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+  org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems | jq -r '.data[]?')
 
 for item in $items; do
   # ":1.52/StatusNotifierItem", or a bare bus name with the default path.
   bus=${item%%/*}
   path=/StatusNotifierItem
   [[ $item == */* ]] && path="/${item#*/}"
+  [[ $bus =~ ^(:|[A-Za-z_])[A-Za-z0-9_.:-]*$ && $path =~ ^/[A-Za-z0-9_/]*$ ]] || continue
 
-  id=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem Id 2>/dev/null | jq -r '.data // empty')
+  id=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem Id | jq -r '.data // empty')
   [[ -n $want && $id == "$want" ]] || continue
 
-  pid=$(busctl --user --json=short call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus \
-    GetConnectionUnixProcessID s "$bus" 2>/dev/null | jq -r '.data[0] // empty')
-  is_menu=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem ItemIsMenu 2>/dev/null | jq -r '.data // false')
-  menu_path=$(busctl --user --json=short get-property "$bus" "$path" org.kde.StatusNotifierItem Menu 2>/dev/null | jq -r '.data // empty')
+  pid=$(bus_call call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus \
+    GetConnectionUnixProcessID s "$bus" | jq -r '.data[0] // empty')
+  is_menu=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem ItemIsMenu | jq -r '.data // false')
+  menu_path=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem Menu | jq -r '.data // empty')
   menu_only=false
   [[ $is_menu == true || $path == */ayatana/* || $menu_path == */ayatana/* || $menu_path == */NotificationItem/* ]] && menu_only=true
 

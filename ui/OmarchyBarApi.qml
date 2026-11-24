@@ -76,8 +76,11 @@ QtObject {
       return true
     }
     function isPluginOpen(id) { return scoped ? scoped.isPluginOpen(id) : false }
+    // A hosted widget saves its own entry only (Omarchy limits plugins the
+    // same way), never "bar" or another widget's.
     function updateEntryInline(id, settings) {
       if (!api.service || !settings || typeof settings !== "object") return false
+      if (id && String(id) !== String(api.moduleName)) return false
       var changes = {}
       for (var key in settings) if (key !== "id") changes[key] = settings[key]
       api.service.updateWidget(String(id || api.moduleName), changes)

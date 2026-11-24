@@ -1,0 +1,331 @@
+[
+  {
+    "name": "skip-taskbar-ignored",
+    "file": "TasksModel.js",
+    "find": "  if (skipsTaskbar(window.tags)) return false\n",
+    "replace": "",
+    "why": "windows tagged skip-taskbar get a button again"
+  },
+  {
+    "name": "skip-tag-static-only",
+    "file": "TasksModel.js",
+    "find": "var SKIP_TAG = /^skip-taskbar\\*?$/",
+    "replace": "var SKIP_TAG = /^skip-taskbar$/",
+    "why": "a tag set by a window rule (skip-taskbar*) is missed"
+  },
+  {
+    "name": "minimized-skip-taskbar-lost",
+    "file": "TasksModel.js",
+    "find": "    return from === view.workspaceId\n",
+    "replace": "    return from === view.workspaceId && !skipsTaskbar(window.tags)\n",
+    "why": "a minimized skip-taskbar window has no way back"
+  },
+  {
+    "name": "pin-not-refreshed",
+    "file": "TasksModel.js",
+    "find": "\"fullscreen\", \"pin\",",
+    "replace": "\"fullscreen\",",
+    "why": "tags that change with a pin are read stale"
+  },
+  {
+    "name": "hide-without-way-back",
+    "file": "TopBarWidget.js",
+    "find": "  return visibleSetting !== false || !wayBack",
+    "replace": "  return visibleSetting !== false",
+    "why": "the taskbar hides with no widget to bring it back"
+  },
+  {
+    "name": "hidden-icon-counts-as-way-back",
+    "file": "Service.qml",
+    "find": "root.widgetOnBar && root.topBarIconShown)",
+    "replace": "root.widgetOnBar)",
+    "why": "taskbar and icon both hidden"
+  },
+  {
+    "name": "hiding-icon-keeps-taskbar-hidden",
+    "file": "Service.qml",
+    "find": "{ topBarIcon: false, visible: undefined }",
+    "replace": "{ topBarIcon: false }",
+    "why": "the saved hidden survives hiding the icon"
+  },
+  {
+    "name": "hide-allowed-with-icon-hidden",
+    "file": "Service.qml",
+    "find": "    if (!root.topBarIconShown) return \"not hidden",
+    "replace": "    if (false) return \"not hidden",
+    "why": "hideTaskbar accepts with the icon hidden"
+  },
+  {
+    "name": "widget-gone-keeps-hidden",
+    "file": "Service.qml",
+    "find": "      root.updateWidget(\"bar\", { visible: undefined })\n    }\n  }",
+    "replace": "    }\n  }",
+    "why": "re-adding the widget hides the taskbar by surprise"
+  },
+  {
+    "name": "widget-counts-from-stale-binding",
+    "file": "BarWidget.qml",
+    "find": "    if (service === null || service === undefined) return",
+    "replace": "    if (!root.serviceReady) return",
+    "why": "the widget never counts itself (live bug 2026-11-23)"
+  },
+  {
+    "name": "plugins-list-ignores-strings",
+    "file": "TopBarWidget.js",
+    "find": "    var id = typeof entry === \"string\" ? entry : (entry && typeof entry === \"object\" ? entry.id : \"\")\n    if (id === PLUGIN_ID) return true\n  }\n  return false",
+    "replace": "    var id = entry && typeof entry === \"object\" ? entry.id : \"\"\n    if (id === PLUGIN_ID) return true\n  }\n  return false",
+    "why": "a bare-string plugins entry reads as not listed (a false warning)"
+  },
+  {
+    "name": "focused-window-styled",
+    "file": "IconStyle.js",
+    "find": "    if (target === \"activeWindow\" && on.activeWindow !== true) style = \"color\"\n",
+    "replace": "",
+    "why": "the focused window loses its color by default"
+  },
+  {
+    "name": "legacy-not-cleared",
+    "file": "IconStyle.js",
+    "find": "    copy.inactiveWindows = false\n",
+    "replace": "",
+    "why": "picking Color for window icons leaves them styled"
+  },
+  {
+    "name": "icon-url-from-network",
+    "file": "IconSource.js",
+    "find": "return isLocalUrl(text) ? text : \"\"",
+    "replace": "return text",
+    "why": "an app-controlled icon URL reaches Qt Image (marketplace review 1)"
+  },
+  {
+    "name": "settings-choice-unchecked",
+    "file": "Settings.js",
+    "find": "      if (rule.choices.indexOf(value) >= 0) settings[key] = value",
+    "replace": "      settings[key] = value",
+    "why": "a typo'd choice reaches the widgets"
+  },
+  {
+    "name": "minimized-dialog-lost",
+    "file": "TasksModel.js",
+    "find": "  if (!window || !window.address) return false\n",
+    "replace": "  if (!window || !window.address || window.hasParent) return false\n",
+    "why": "R1-H1: a minimized dialog gets no button"
+  },
+  {
+    "name": "barless-screen-ignored",
+    "file": "TasksModel.js",
+    "find": "    if ((view.barlessWorkspaces || []).indexOf(from) >= 0) return true\n",
+    "replace": "",
+    "why": "R1-H2: minimized on a screen without a bar, lost"
+  },
+  {
+    "name": "untagged-minimized-lost",
+    "file": "TasksModel.js",
+    "find": "    if (mode === \"all\" || from === null) return true",
+    "replace": "    if (from === null) return false\n    if (mode === \"all\") return true",
+    "why": "R1-M2: an untagged minimized window has no button"
+  },
+  {
+    "name": "barless-list-wrong",
+    "file": "TasksModel.js",
+    "find": "    if (monitor && names.indexOf(String(monitor)) < 0) out.push(list[i].id)",
+    "replace": "    if (monitor && names.indexOf(String(monitor)) >= 0) out.push(list[i].id)",
+    "why": "R1-H2: the barless list inverted"
+  },
+  {
+    "name": "own-widget-hostable",
+    "file": "Hosting.js",
+    "find": "  if (key === OWN_ID || !widgets) return false",
+    "replace": "  if (!widgets) return false",
+    "why": "R1-H3: Transom's widget on its own bar"
+  },
+  {
+    "name": "third-party-in-menu",
+    "file": "Hosting.js",
+    "find": "    if (meta.firstParty !== true) continue\n",
+    "replace": "",
+    "why": "R1-H3/F M5: other plugins' widgets offered"
+  },
+  {
+    "name": "layout-always-a-way-back",
+    "file": "Service.qml",
+    "find": "root.widgetLive || (root.startupGrace && TopBarWidget.inLayout(root.topBarLayout))",
+    "replace": "root.widgetLive || TopBarWidget.inLayout(root.topBarLayout)",
+    "why": "R1-M1: a widget listed but never drawn counts"
+  },
+  {
+    "name": "no-rebuild-debounce",
+    "file": "Service.qml",
+    "find": "    } else if (root.widgetLive) {\n      widgetGoneTimer.restart()",
+    "replace": "    } else if (root.widgetLive) {\n      root.widgetLive = false",
+    "why": "a top-bar rebuild flashes the hidden taskbar"
+  },
+  {
+    "name": "save-over-broken-file",
+    "file": "Service.qml",
+    "find": "    if (root.settingsError !== \"\") {\n      console.warn(\"transom: not saved: \"",
+    "replace": "    if (false) {\n      console.warn(\"transom: not saved: \"",
+    "why": "R1-H4: a click overwrites a broken file"
+  },
+  {
+    "name": "non-list-section-silent",
+    "file": "Settings.js",
+    "find": "      problems.push(\"\\\"\" + name + \"\\\" must be a list\")\n",
+    "replace": "",
+    "why": "R1-H4: a section that isn't a list is dropped silently, then saved over"
+  },
+  {
+    "name": "unknown-keys-dropped",
+    "file": "Settings.js",
+    "find": "    layout[key] = parsed[key]\n",
+    "replace": "",
+    "why": "R1-H4: saves drop keys Transom doesn't know"
+  },
+  {
+    "name": "failed-lookup-steps-in",
+    "file": "TrayModel.js",
+    "find": "  if (!before || !after || before.failed || after.failed) return \"app\"\n",
+    "replace": "",
+    "why": "R1-M3: a failed tray lookup launches the app"
+  },
+  {
+    "name": "tray-busctl-no-deadline",
+    "file": "tray-window",
+    "find": "busctl --user --json=short --timeout=1 -- \"$@\"",
+    "replace": "busctl --user --json=short -- \"$@\"",
+    "why": "R1-M3: 25 s per hung D-Bus call"
+  },
+  {
+    "name": "tray-busctl-options",
+    "file": "tray-window",
+    "find": "busctl --user --json=short --timeout=1 -- \"$@\"",
+    "replace": "busctl --user --json=short --timeout=1 \"$@\"",
+    "why": "R1-L3: an app-chosen name read as an option"
+  },
+  {
+    "name": "tray-bus-name-unchecked",
+    "file": "tray-window",
+    "find": "  [[ $bus =~ ^(:|[A-Za-z_])[A-Za-z0-9_.:-]*$ && $path =~ ^/[A-Za-z0-9_/]*$ ]] || continue\n",
+    "replace": "",
+    "why": "R1-L3: odd bus names passed on"
+  },
+  {
+    "name": "minimize-always-focuses",
+    "file": "minimize",
+    "find": "if [[ $ADDRESS == \"$ACTIVE\" ]]; then",
+    "replace": "if true; then",
+    "why": "R1-M6: minimizing another window yanks the screen"
+  },
+  {
+    "name": "minimize-without-tag",
+    "file": "minimize",
+    "find": "remember_minimized_from \"$ADDRESS\" \"$WORKSPACE\" || exit 1",
+    "replace": "remember_minimized_from \"$ADDRESS\" \"$WORKSPACE\"",
+    "why": "a window moved without its tag"
+  },
+  {
+    "name": "minimize-special-workspace",
+    "file": "minimize",
+    "find": "[[ -n $ADDRESS && $WORKSPACE =~ ^[0-9]+$ ]] || exit 1",
+    "replace": "[[ -n $ADDRESS ]] || exit 1",
+    "why": "S: minimize accepts special workspaces"
+  },
+  {
+    "name": "refresh-restarted",
+    "file": "TasksModel.js",
+    "find": "  return !timerRunning && REFRESH_EVENTS.indexOf(String(name || \"\")) >= 0",
+    "replace": "  return REFRESH_EVENTS.indexOf(String(name || \"\")) >= 0",
+    "why": "rule 12: a stream of events starves the refresh"
+  },
+  {
+    "name": "refresh-on-title",
+    "file": "TasksModel.js",
+    "find": "\"togglegroup\", \"moveintogroup\", \"moveoutofgroup\", \"activewindowv2\"]",
+    "replace": "\"togglegroup\", \"moveintogroup\", \"moveoutofgroup\", \"activewindowv2\", \"windowtitlev2\"]",
+    "why": "a spinner's title refreshes several times a second"
+  },
+  {
+    "name": "group-events-dropped",
+    "file": "TasksModel.js",
+    "find": "\"togglegroup\", \"moveintogroup\", \"moveoutofgroup\", \"activewindowv2\"]",
+    "replace": "\"activewindowv2\"]",
+    "why": "R1-L2: group tab switches go stale"
+  },
+  {
+    "name": "describe-ignores-parent",
+    "file": "TasksModel.js",
+    "find": "    hasParent: !!(toplevel && toplevel.wayland && toplevel.wayland.parent),",
+    "replace": "    hasParent: false,",
+    "why": "F M1: dialogs get buttons"
+  },
+  {
+    "name": "describe-ignores-hidden",
+    "file": "TasksModel.js",
+    "find": "    hidden: ipc.hidden\n",
+    "replace": "    hidden: false\n",
+    "why": "F M2: hidden windows show"
+  },
+  {
+    "name": "from-tag-unanchored",
+    "file": "TasksModel.js",
+    "find": "var FROM_TAG = /^omarchy-minimized-from-(-?\\d+)\\*?$/",
+    "replace": "var FROM_TAG = /^omarchy-minimized-from-(-?\\d+)/",
+    "why": "F M3: from-3x reads as 3"
+  },
+  {
+    "name": "order-map-prototype",
+    "file": "TasksModel.js",
+    "find": "  var rank = Object.create(null)\n  for (var i = 0; i < (order || []).length; i++) rank[order[i]] = i",
+    "replace": "  var rank = {}\n  for (var i = 0; i < (order || []).length; i++) rank[order[i]] = i",
+    "why": "F M6: names like constructor sort first"
+  },
+  {
+    "name": "drag-floor",
+    "file": "Reorder.js",
+    "find": "  var target = fromIndex + Math.round(offset / slotSize)",
+    "replace": "  var target = fromIndex + Math.floor(offset / slotSize)",
+    "why": "F M7: a drag under a slot doesn't move"
+  },
+  {
+    "name": "exceptions-case",
+    "file": "IconStyle.js",
+    "find": "      if (String(list[j] || \"\").toLowerCase().indexOf(wanted) >= 0) return \"color\"",
+    "replace": "      if (String(list[j] || \"\").indexOf(wanted) >= 0) return \"color\"",
+    "why": "F M10: exceptions stop matching any case"
+  },
+  {
+    "name": "tray-tooltip-ignored",
+    "file": "TrayModel.js",
+    "find": "    || text(icon.tooltipTitle).indexOf(wanted) >= 0\n",
+    "replace": "",
+    "why": "F M17: tooltip names stop matching"
+  },
+  {
+    "name": "command-counts-as-pinned",
+    "file": "QuickLaunchModel.js",
+    "find": "  return !!value && typeof value === \"object\" && !trimmed(value.command) && appKey(value.app) === key",
+    "replace": "  return !!value && typeof value === \"object\" && appKey(value.app) === key",
+    "why": "F M19: unpin removes a custom command"
+  },
+  {
+    "name": "args-unchecked",
+    "file": "QuickLaunchModel.js",
+    "find": "    item.args = args.filter(function(arg) { return typeof arg === \"string\" })",
+    "replace": "    item.args = args",
+    "why": "F M20: non-string args reach a command line"
+  },
+  {
+    "name": "dropdown-hidden-rows",
+    "file": "BarWidget.qml",
+    "find": "    if (root.tasksOn) keys = keys.concat([\"iconsOnly\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
+    "replace": "    keys = keys.concat([\"iconsOnly\", \"combine\", \"thumbnails\", \"plainTitles\", \"windows\"])",
+    "why": "F M15: the cursor stops on hidden rows"
+  },
+  {
+    "name": "slider-saves-per-key",
+    "file": "BarWidget.qml",
+    "find": "      root.stepMaxIcons(dx)",
+    "replace": "      root.setMaxIcons(root.tray.maxIcons + dx)",
+    "why": "held keys write the file per repeat"
+  }
+]

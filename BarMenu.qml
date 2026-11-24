@@ -4,6 +4,7 @@ import qs.Commons
 import "Settings.js" as Settings
 import "TasksModel.js" as TasksModel
 import "TrayModel.js" as TrayModel
+import "TopBarWidget.js" as TopBarWidget
 import "ui"
 
 // The bar's own right-click menu (empty bar space), like Windows' taskbar
@@ -47,12 +48,20 @@ AnchoredPopup {
 
   readonly property string iconStyle: bar ? bar.iconStyle : "color"
   readonly property string windowIconStyle: bar ? bar.windowIconStyle : "color"
-  readonly property var iconStyles: ["color", "mono", "themed"]
-  readonly property var iconStyleNames: ({ "color": "color", "mono": "gray", "themed": "theme color" })
-  readonly property var combineModes: ["never", "full", "always"]
-  readonly property var combineNames: ({ "never": "never", "full": "when full", "always": "always" })
-  readonly property var windowModes: ["workspace", "monitor", "all"]
-  readonly property var windowModeNames: ({ "workspace": "this workspace", "monitor": "this screen", "all": "all" })
+  // The same choices as the top-bar dropdown (TopBarWidget.js), in the
+  // menu's lowercase words: one list, so the two can't drift apart.
+  function valuesOf(choices) { return choices.map(function(choice) { return choice.value }) }
+  function namesOf(choices) {
+    var out = ({})
+    choices.forEach(function(choice) { out[choice.value] = choice.label.toLowerCase() })
+    return out
+  }
+  readonly property var iconStyles: valuesOf(TopBarWidget.ICON_STYLES)
+  readonly property var iconStyleNames: namesOf(TopBarWidget.ICON_STYLES)
+  readonly property var combineModes: valuesOf(TopBarWidget.COMBINE)
+  readonly property var combineNames: namesOf(TopBarWidget.COMBINE)
+  readonly property var windowModes: valuesOf(TopBarWidget.WINDOWS)
+  readonly property var windowModeNames: namesOf(TopBarWidget.WINDOWS)
 
   function change(id, changes) {
     if (menu.bar) menu.bar.updateWidget(id, changes)
@@ -62,6 +71,23 @@ AnchoredPopup {
     contentWidth: Style.space(270)
 
     // ------------------------------------------------------- main page
+
+    // While transom.json has a problem nothing here can save (the service
+    // refuses); this says so and opens the file.
+    MenuItemRow {
+      visible: menu.page === "main" && !!menu.bar && menu.bar.settingsProblem !== ""
+      text: "Settings file has a problem: changes paused…"
+      checkColumn: true
+      onTriggered: {
+        menu.open = false
+        menu.bar.openSettingsFile()
+      }
+    }
+
+    MenuItemRow {
+      visible: menu.page === "main" && !!menu.bar && menu.bar.settingsProblem !== ""
+      separator: true
+    }
 
     // Windows' wording. Locked, nothing on the bar can be dragged.
     MenuItemRow {
