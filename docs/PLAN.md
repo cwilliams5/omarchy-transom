@@ -160,6 +160,11 @@ every survivor was QML or a script that no test loads.
 - [x] **R2-L10 The `tray` diagnostic reads switched-off entries** (F L4).
 - [x] **R2-L11 A hidden icon still counts as a panel** for Tab and
   Omarchy's numbered panel keys (F L7). Fix: invisible, zero width.
+- [x] **R2-L13 A widget dragged off the top bar had no way back from the
+  taskbar** (found by Cody, 2026-11-24): the bar menu's "Top-bar icon" row
+  showed only while the widget was on a bar. Fix: the row is always there,
+  and ticking it puts the widget back through Omarchy's own `putBarWidget`
+  (rule 1's one exception, on a click). Tested (widget.test.sh, a mutation).
 - [x] **R2-L12 Nits** (both): an empty id through `set`; a duplicated
   line in WindowPreview; the diagnostics' own entry lookup; a stray
   "the"; README test and file docs, dependencies; CLAUDE.md's "every pure

@@ -175,7 +175,12 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 ## Rules that must not be broken (and why)
 
 1. **Only ever write `~/.config/omarchy/transom.json`.** Never `shell.json`,
-   Hyprland config or anything else. Users trust a plugin that keeps to its
+   Hyprland config or anything else. One exception, on a click only: the
+   bar menu's "Top-bar icon" puts the widget back on Omarchy's bar after it
+   was dragged off, by Omarchy's own `omarchy-shell shell putBarWidget`
+   (Omarchy writes its own file, as when a widget is dragged on), so the
+   taskbar can always bring the widget back as the widget brings back the
+   taskbar. Users trust a plugin that keeps to its
    own file, the README promises it, and the marketplace review checks what
    a plugin writes.
 2. **The settings file lives outside the plugin folder.** Omarchy reloads a

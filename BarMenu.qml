@@ -123,14 +123,16 @@ AnchoredPopup {
       onTriggered: menu.change("bar", { autohide: !checked })
     }
 
-    // The top-bar widget's icon (bar option topBarIcon), once the widget is
-    // on a bar. Here because a hidden icon can't open its own dropdown.
+    // The top-bar widget's icon (bar option topBarIcon). Here because a
+    // hidden icon, or a widget dragged off the top bar, can't bring itself
+    // back: unticked, a click shows the icon, putting the widget back on
+    // Omarchy's bar first if it isn't on one.
     MenuItemRow {
-      visible: menu.page === "main" && !!menu.bar && menu.bar.widgetOnBar
+      visible: menu.page === "main"
       text: "Top-bar icon"
       checkColumn: true
-      checked: !!menu.bar && menu.bar.topBarIconShown
-      onTriggered: menu.bar.setTopBarIconShown(!menu.bar.topBarIconShown)
+      checked: !!menu.bar && menu.bar.widgetOnBar && menu.bar.topBarIconShown
+      onTriggered: menu.bar.setTopBarIconShown(!checked)
     }
 
     // Steps through the icon styles on each click: app icons (the tray and

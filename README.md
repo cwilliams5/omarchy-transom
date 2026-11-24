@@ -120,8 +120,10 @@ Python 3 for the test tools in `dev/`, and Qt's shader compiler
 (`qt6-shadertools`) to rebuild the icon tint shader.
 
 **What it changes:** only its own settings file,
-`~/.config/omarchy/transom.json`. It never edits Omarchy's config; moving
-widgets off the top bar or turning off the dock is up to you.
+`~/.config/omarchy/transom.json`. It never edits Omarchy's config itself
+(one click asks Omarchy to put its top-bar widget back; see "Top-bar
+widget"); moving widgets off the top bar or turning off the dock is up to
+you.
 
 ## Uninstall
 
@@ -210,7 +212,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
-| Top-bar icon ✓ | The bar option `topBarIcon` (shown once Transom's widget is on Omarchy's bar): brings a hidden icon back |
+| Top-bar icon ✓ | The bar option `topBarIcon`: brings a hidden icon back, and puts the widget back on Omarchy's bar if it was dragged off |
 | Icons: … | Cycles `iconStyle` (the tray and quick launch): color → gray → theme color |
 | Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
@@ -266,7 +268,10 @@ o.bind("SUPER + ALT + T", "Show or hide the taskbar", "omarchy-shell transom tog
 **Don't want the icon? Switch it off rather than removing it:** the
 dropdown's **Top-bar icon** switch (the bar option `topBarIcon`). The
 widget then takes no room on the top bar and Transom keeps running; the
-bottom bar's right-click menu has **Top-bar icon** to bring it back.
+bottom bar's right-click menu has **Top-bar icon** to bring it back. That
+row also puts the widget back on Omarchy's bar if it was dragged off
+(through Omarchy's own command, the one change to Omarchy's config
+Transom ever asks for, and only on that click).
 
 Why not remove it: Omarchy runs a plugin that has a top-bar widget only
 while that widget is on a bar, unless the plugin is also in the `plugins`

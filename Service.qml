@@ -307,9 +307,25 @@ Item {
 
   // Shows or hides the widget's icon and saves it. Hiding it shows the
   // taskbar too, so one of the two is always there to bring the other back.
+  // Showing it when the widget isn't on any bar (dragged off) puts it back.
   function setTopBarIconShown(on) {
+    if (on && !root.widgetOnBar) root.putWidgetOnTopBar()
     if (on) root.updateWidget("bar", { topBarIcon: undefined })
     else root.updateWidget("bar", { topBarIcon: false, visible: undefined })
+  }
+
+  // Puts the widget back on Omarchy's top bar after it was dragged off, so
+  // the taskbar can always bring back the widget, as the widget brings back
+  // the taskbar. Done by Omarchy's own command (putBarWidget: only when the
+  // widget isn't on the bar, in the section its manifest names), which
+  // writes Omarchy's own shell.json as dragging a widget onto the bar does:
+  // the one change to Omarchy's config Transom asks for, and only on a
+  // click (CLAUDE.md rule 1).
+  function putWidgetOnTopBar() {
+    if (root.widgetOnBar) return "already on a bar"
+    console.log("transom: putting the top-bar widget back (omarchy-shell shell putBarWidget)")
+    Util.execDetached("omarchy-shell shell putBarWidget " + Util.shellQuote(TopBarWidget.PLUGIN_ID) + " '{}'")
+    return "put back"
   }
 
   // When the last copy has been gone for a second, the taskbar shows
@@ -341,7 +357,7 @@ Item {
     return root.updateWidget("bar", { visible: undefined }) ? "shown" : "not shown: " + root.settingsProblem
   }
   function hideTaskbar() {
-    if (!root.widgetOnBar) return "not hidden: put Transom's widget on the top bar first (its \"Show the taskbar\" switch brings the taskbar back)"
+    if (!root.widgetOnBar) return "not hidden: put Transom's widget on the top bar first (the bar menu's \"Top-bar icon\" does it; its \"Show the taskbar\" switch brings the taskbar back)"
     if (!root.topBarIconShown) return "not hidden: show Transom's top-bar icon first (bar menu, \"Top-bar icon\"): it's the way back"
     if (root.settings.visible === false) return "hidden"
     return root.updateWidget("bar", { visible: false }) ? "hidden" : "not hidden: " + root.settingsProblem

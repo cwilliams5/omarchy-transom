@@ -139,6 +139,7 @@ ShellRoot {
     function visibleIcon(): string { return String(w.visible) }
     function focus(address: string): string { svc.focusWindow(address); return "ok" }
     function restore(address: string, workspace: int): string { svc.restoreWindow(address, workspace); return "ok" }
+    function setIcon(on: bool): string { svc.setTopBarIconShown(on); return "ok" }
     function layout(on: bool): string { fakeShell.widgetOnLayout = on; return String(svc.widgetOnBar) }
   }
 }
@@ -295,6 +296,17 @@ wt focus '0x1" }) ; hl.exec("x' >/dev/null; wt restore 0xabc -1 >/dev/null; wt r
 check "a target that isn't an address never reaches Hyprland's Lua (R1-L4)" "$(grep -c 'hl.exec' "$dir/calls.txt"),$(grep -c 'address:0x0' "$dir/calls.txt")" "0,2"
 check "a restore to a workspace that isn't one does nothing; a real one dispatches there" \
   "$(grep -c 'workspace = "-1"' "$dir/calls.txt"),$(grep -c 'workspace = "2"' "$dir/calls.txt")" "0,1"
+
+# The widget dragged off the top bar: the bar menu's "Top-bar icon" puts it
+# back, through Omarchy's own command, and only when it isn't on a bar.
+wt widget false >/dev/null; wt layout false >/dev/null; sleep 1.3
+: > "$dir/calls.txt"
+wt setIcon true >/dev/null; sleep 0.4
+check "the widget gone: Top-bar icon asks Omarchy to put it back" "$(grep -c '^omarchy-shell shell putBarWidget io.github.cwilliams5.transom' "$dir/calls.txt")" "1"
+wt layout true >/dev/null; wt widget true >/dev/null; sleep 0.6
+: > "$dir/calls.txt"
+wt setIcon true >/dev/null; sleep 0.4
+check "...and not while it's on a bar" "$(grep -c 'putBarWidget' "$dir/calls.txt")" "0"
 
 [ $fail = 0 ] || { echo "--- shell log (last 30 lines)"; tail -30 "$dir/log.txt"; }
 exit $fail

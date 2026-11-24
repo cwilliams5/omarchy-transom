@@ -432,5 +432,12 @@
     "find": "  function restoreWindow(address, workspaceId) {\n    if (!(workspaceId >= 1)) return\n",
     "replace": "  function restoreWindow(address, workspaceId) {\n",
     "why": "a restore to workspace -1"
+  },
+  {
+    "name": "r2-dragged-off-widget-stranded",
+    "file": "Service.qml",
+    "find": "    if (on && !root.widgetOnBar) root.putWidgetOnTopBar()\n",
+    "replace": "",
+    "why": "a widget dragged off the top bar has no way back from the taskbar"
   }
 ]
