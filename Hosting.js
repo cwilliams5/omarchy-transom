@@ -6,6 +6,12 @@
 
 var OWN_ID = "io.github.cwilliams5.transom"
 
+// Omarchy widgets that read Omarchy's own services (firstPartyServiceFor),
+// which Omarchy gives only to plugins of kind "bar": on Transom's bar media
+// never appears and most indicators never light (strict review R2-M4). Not
+// offered in the menu; typed into transom.json they still load.
+var NEEDS_BAR_SERVICES = ["omarchy.media", "omarchy.indicators"]
+
 // Whether an id in transom.json may be loaded as a hosted widget. Never
 // Transom's own: on its own bar it would hide with the taskbar it's the
 // way back to (strict review R1-H3).
@@ -24,6 +30,7 @@ function menuList(widgets) {
   if (!widgets) return out
   for (var id in widgets) {
     if (!Object.prototype.hasOwnProperty.call(widgets, id) || id === "omarchy.tray" || !canHost(id, widgets)) continue
+    if (NEEDS_BAR_SERVICES.indexOf(id) >= 0) continue
     var meta = (widgets[id] && widgets[id].metadata) || {}
     if (meta.firstParty !== true) continue
     out.push({ id: id, name: String(meta.displayName || id) })
@@ -33,5 +40,5 @@ function menuList(widgets) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { OWN_ID: OWN_ID, canHost: canHost, menuList: menuList }
+  module.exports = { OWN_ID: OWN_ID, NEEDS_BAR_SERVICES: NEEDS_BAR_SERVICES, canHost: canHost, menuList: menuList }
 }

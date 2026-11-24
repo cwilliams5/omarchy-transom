@@ -212,16 +212,20 @@ test("a window tagged skip-taskbar gets no button, in any mode, unless minimized
 })
 
 test("window data is re-read after a pin and group changes, never on a title change", () => {
-  for (const name of ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin", "togglegroup", "moveintogroup", "moveoutofgroup", "activewindowv2"]) {
+  for (const name of ["openwindow", "movewindowv2", "changefloatingmode", "fullscreen", "pin", "togglegroup", "moveintogroup", "moveoutofgroup"]) {
     assert.ok(M.startsRefresh(name, false), name)
   }
+  assert.ok(!M.startsRefresh("activewindowv2", false, false), "a plain focus change doesn't (R2-L9)")
+  assert.ok(M.startsRefresh("activewindowv2", false, true), "a group tab switch does")
+  assert.ok(M.hiddenOrGrouped({ hidden: true }) && M.hiddenOrGrouped({ hidden: false, grouped: ["0x1", "0x2"] }))
+  assert.ok(!M.hiddenOrGrouped({ hidden: false, grouped: [] }) && !M.hiddenOrGrouped(null))
   for (const name of ["windowtitle", "windowtitlev2", "", "constructor"]) assert.ok(!M.startsRefresh(name, false), name)
 })
 
 test("the refresh is started, never restarted, so a stream of events can't starve it", () => {
   assert.ok(!M.startsRefresh("openwindow", true))
   const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
-  assert.ok(service.includes("refreshTimer.running)) refreshTimer.start()") && service.includes("TasksModel.startsRefresh("), "Service.qml uses it")
+  assert.ok(service.includes("if (TasksModel.startsRefresh(name, refreshTimer.running, activeWasHidden)) refreshTimer.start()"), "Service.qml uses it")
 })
 
 test("a tray click whose lookup failed or timed out is left to the app (R1-M3)", () => {
@@ -958,6 +962,23 @@ test("hosting: never Transom's own widget, on its own bar it would hide its way 
   assert.deepStrictEqual(H.menuList(catalogue).map((widget) => widget.id), ["omarchy.clock", "omarchy.network"],
     "the menu offers Omarchy's own, sorted by name, without its tray")
   assert.deepStrictEqual(H.menuList(null), [])
+  const withServices = Object.assign({}, catalogue, {
+    "omarchy.media": { metadata: { displayName: "Media", firstParty: true } },
+    "omarchy.indicators": { metadata: { displayName: "Indicators", firstParty: true } }
+  })
+  assert.deepStrictEqual(H.menuList(withServices).map((widget) => widget.id), ["omarchy.clock", "omarchy.network"],
+    "Media and Indicators need Omarchy's bar services, so they aren't offered (R2-M4)")
+  assert.ok(H.canHost("omarchy.indicators", withServices), "...but one already in transom.json still loads")
+})
+
+test("a file broken at start-up runs on the defaults minus closing and launching (R2-L4)", () => {
+  const sections = ["left", "center", "right"]
+  const defaults = { left: [], center: [{ id: "tasks", middleClick: "close" }], right: [{ id: "tray", replaceLeftClick: true }, { id: "showdesktop" }] }
+  const safe = S.safeLayout(defaults, sections)
+  assert.strictEqual(safe.center[0].middleClick, "nothing")
+  assert.strictEqual(safe.right[0].replaceLeftClick, false)
+  assert.strictEqual(defaults.center[0].middleClick, "close", "the defaults themselves are untouched")
+  assert.deepStrictEqual(S.safeLayout(null, sections), {})
 })
 
 test("reading transom.json: what's kept, what's a problem (R1-H4)", () => {
@@ -977,6 +998,30 @@ test("reading transom.json: what's kept, what's a problem (R1-H4)", () => {
   assert.deepStrictEqual(odd.layout.right, [{ id: "tray" }], "what could be read is still shown")
   const proto = S.readLayout('{"__proto__": {"x": 1}, "right": []}', sections)
   assert.strictEqual(Object.getPrototypeOf(proto.layout), Object.prototype, "a __proto__ key can't change the layout's prototype")
+})
+
+test("a screen with no bar: its windows show on the bars there are, even after its workspace is dropped (R2-L5)", () => {
+  // Minimized from workspace 3, which Hyprland has since dropped: remembered as barless.
+  assert.ok(M.belongsTo(minimizedFrom(3), view({ workspaceId: 1, knownWorkspaces: [1], barlessWorkspaces: [3] })))
+  // Open windows on the bar-less screen's workspace.
+  const there = win({ workspaceId: 4, workspaceName: "4" })
+  assert.ok(M.belongsTo(there, view({ workspaceId: 1, barlessActive: [4] })), "workspace mode: the workspace it shows")
+  assert.ok(!M.belongsTo(there, view({ workspaceId: 1, barlessActive: [5] })), "...not its other workspaces")
+  assert.ok(M.belongsTo(there, view({ mode: "monitor", monitorWorkspaces: [1], barlessWorkspaces: [4, 5] })), "monitor mode: all of them")
+  assert.ok(!M.belongsTo(there, view({ workspaceId: 1 })), "every screen with a bar: unchanged")
+})
+
+test("maximized means Hyprland's fullscreen mode 1 only (rule 10)", () => {
+  assert.ok(M.isMaximizedIpc({ fullscreen: 1 }))
+  assert.ok(!M.isMaximizedIpc({ fullscreen: 2 }), "real fullscreen isn't")
+  assert.ok(!M.isMaximizedIpc({ fullscreen: 0 }) && !M.isMaximizedIpc(null))
+})
+
+test("show desktop brings back only its own windows: still minimized, from here (R1-L1)", () => {
+  assert.ok(M.restorable(minimizedFrom(1), 1))
+  assert.ok(!M.restorable(minimizedFrom(3), 1), "an address reused by a window minimized elsewhere")
+  assert.ok(!M.restorable(win({ workspaceId: 1, workspaceName: "1", tags: ["omarchy-minimized-from-1"] }), 1), "not minimized any more")
+  assert.ok(!M.restorable(null, 1))
 })
 
 if (failures) {

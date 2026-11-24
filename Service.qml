@@ -312,19 +312,17 @@ Item {
     else root.updateWidget("bar", { topBarIcon: false, visible: undefined })
   }
 
-  // When the last copy has been gone for a second, a saved "hidden" is
-  // cleared too, so putting the widget back later doesn't hide the taskbar
-  // by surprise. (On an install Omarchy lists only on the bar, removing the
-  // widget stops Transom first; it comes back as it was, icon included.)
+  // When the last copy has been gone for a second, the taskbar shows
+  // (taskbarShown). Nothing is written: a saved "hidden" applies again when
+  // the widget comes back, as the user left it (R2-L7: a monitor change
+  // could otherwise rewrite the file).
   Timer {
     id: widgetGoneTimer
     interval: 1000
     onTriggered: {
       if (root.widgetCopies > 0) return
       root.widgetLive = false
-      if (root.settings.visible !== false) return
-      console.log("transom: the top-bar widget is gone, so the taskbar shows again")
-      root.updateWidget("bar", { visible: undefined })
+      if (root.settings.visible === false) console.log("transom: the top-bar widget is gone, so the taskbar shows")
     }
   }
 
@@ -332,14 +330,21 @@ Item {
   // bar; without it this says so and changes nothing.
   function showTaskbar() {
     if (root.settings.visible !== false) return "shown"
-    root.updateWidget("bar", { visible: undefined })
-    return "shown"
+    if (root.settingsError !== "") {
+      // Showing is the way back, so it works while saving is paused, in
+      // memory only (R2-L3).
+      var next = JSON.parse(JSON.stringify(root.layout))
+      if (next.bar) delete next.bar.visible
+      root.layout = next
+      return "shown, but not saved: " + root.configPath + " has a problem"
+    }
+    return root.updateWidget("bar", { visible: undefined }) ? "shown" : "not shown: " + root.settingsProblem
   }
   function hideTaskbar() {
     if (!root.widgetOnBar) return "not hidden: put Transom's widget on the top bar first (its \"Show the taskbar\" switch brings the taskbar back)"
     if (!root.topBarIconShown) return "not hidden: show Transom's top-bar icon first (bar menu, \"Top-bar icon\"): it's the way back"
-    if (root.settings.visible !== false) root.updateWidget("bar", { visible: false })
-    return "hidden"
+    if (root.settings.visible === false) return "hidden"
+    return root.updateWidget("bar", { visible: false }) ? "hidden" : "not hidden: " + root.settingsProblem
   }
   function toggleTaskbar() {
     return root.taskbarShown ? root.hideTaskbar() : root.showTaskbar()
@@ -395,22 +400,41 @@ Item {
   // bar couldn't fully read (strict review R1-H4). The bar shows what it
   // could read, or the last good settings, or the defaults.
   property string settingsError: ""
-  // The last save failed (an unwritable file): the bar went back to what's
-  // on disk (R1-L6).
+  // The last save failed (an unwritable file or folder): the bar went back
+  // to what's on disk, and says so until a save works (R1-L6, R2-L1).
   property string saveError: ""
   readonly property string settingsProblem: settingsError !== "" ? settingsError : saveError
   // The text on disk as last read or saved, to go back to after a failed save.
   property string diskText: ""
+  // A good file has been read this session. Until then a broken one runs on
+  // the defaults minus anything that closes or launches (R2-L4).
+  property bool readGood: false
 
-  // Says once, per distinct problem, in a notification (the bar menu and
-  // the top-bar dropdown say it too, while it lasts).
+  // A problem is notified once it has lasted half a second (an editor
+  // saving in place empties the file for a moment, R2-L2), and a later one
+  // again once the first has cleared (R2-L1). The bar menu and the
+  // dropdown say it too, for as long as it lasts.
   property string notifiedProblem: ""
   onSettingsProblemChanged: {
-    if (root.settingsProblem === "" || root.settingsProblem === root.notifiedProblem) return
-    root.notifiedProblem = root.settingsProblem
-    console.warn("transom: " + root.configPath + ": " + root.settingsProblem)
-    Util.execDetached("notify-send -a Transom " + Util.shellQuote("Transom's settings file has a problem")
-      + " " + Util.shellQuote(root.configPath + ": " + root.settingsProblem + ". Changes from the menus are paused until it's fixed."))
+    if (root.settingsProblem === "") {
+      root.notifiedProblem = ""
+      problemNotice.stop()
+    } else {
+      problemNotice.restart()
+    }
+  }
+  Timer {
+    id: problemNotice
+    interval: 500
+    onTriggered: {
+      var problem = root.settingsProblem
+      if (problem === "" || problem === root.notifiedProblem) return
+      root.notifiedProblem = problem
+      console.warn("transom: " + root.configPath + ": " + problem)
+      var effect = root.settingsError !== "" ? "Changes from the menus are paused until it's fixed." : "Changes from the menus can't be saved."
+      Util.execDetached("notify-send -a Transom " + Util.shellQuote("Transom's settings file has a problem")
+        + " " + Util.shellQuote(root.configPath + ": " + problem + ". " + effect))
+    }
   }
 
   function applyUserText(text) {
@@ -421,11 +445,49 @@ Item {
     if (read.problems.length > 0) {
       root.settingsError = read.problems.join("; ")
       if (read.layout) root.layout = read.layout
+      else if (!root.readGood) root.layout = Settings.safeLayout(root.defaultLayout, root.sections)
       return
     }
     root.settingsError = ""
-    root.saveError = ""
+    root.readGood = true
     root.layout = read.layout
+  }
+
+  // Reads the file again right before a change is saved, so a change the
+  // watcher missed is never saved over (R2-M1): once a symlinked
+  // transom.json is replaced or re-pointed, the watching FileView keeps
+  // reading the old target, even on reload. diskCheck opens the path afresh
+  // (reload() on a FileView of its own, read synchronously), and anything
+  // new is applied before the change goes on top of it.
+  function refreshFromDisk() {
+    diskCheck.path = root.configPath
+    diskCheck.reload()
+    var text = diskCheck.text()
+    if (text !== "" && text !== root.diskText) {
+      console.log("transom: " + root.configPath + " changed on disk unseen; read it again before saving")
+      root.applyUserText(text)
+      root.reattachUserFile()
+    }
+  }
+
+  // Points the watching FileView at the path afresh, after a change it
+  // missed (it was watching a replaced symlink's old target), so it sees
+  // later edits again. Its load while re-attaching changes nothing: the
+  // text is what Transom already has.
+  property bool reattaching: false
+  function reattachUserFile() {
+    root.reattaching = true
+    userFile.path = ""
+    userFile.path = Qt.binding(function() { return root.configPath })
+    root.reattaching = false
+  }
+
+  // blockAllReads: text() waits for the read, so the check is done before
+  // the save (blockLoading alone doesn't make reload() wait).
+  FileView {
+    id: diskCheck
+    blockAllReads: true
+    printErrors: false
   }
 
   FileView {
@@ -452,6 +514,7 @@ Item {
       root.applyUserText(text())
     }
     onLoadFailed: {
+      if (root.reattaching) return
       root.userConfigExists = false
       root.layoutText = ""
       root.diskText = ""
@@ -464,12 +527,12 @@ Item {
       root.saveError = ""
     }
     onSaveFailed: function(error) {
-      root.saveError = "it couldn't be saved (" + error + ")"
-      // Back to what's on disk: memory had already moved on.
+      // Back to what's on disk (memory had already moved on), then say so.
       var disk = root.diskText
       root.layoutText = ""
       if (disk !== "") root.applyUserText(disk)
       else root.layout = root.defaultLayout
+      root.saveError = "it couldn't be saved (is it, or its folder, read-only?)"
     }
   }
 
@@ -506,6 +569,8 @@ Item {
   // removes that key. A widget missing from the file is added to its home
   // section.
   function updateWidget(id, changes) {
+    if (typeof id !== "string" || id === "") return false
+    root.refreshFromDisk()
     var next = JSON.parse(JSON.stringify(root.layout))
     var entry = null
     // "bar" is the bar-wide options object, not a widget.
@@ -529,7 +594,7 @@ Item {
       else entry[key] = changes[key]
     }
     console.log("transom: setting " + id + " " + JSON.stringify(changes))
-    root.saveLayout(next)
+    return root.saveLayout(next)
   }
 
   // Omarchy's own widgets (the start button, network, battery...) are
@@ -543,6 +608,7 @@ Item {
   // Moves a widget into section, before the widget beforeId (or to the
   // end, before show desktop), keeping its settings. From a drag.
   function moveWidget(id, section, beforeId) {
+    root.refreshFromDisk()
     var next = Reorder.moveEntry(root.layout, id, section, beforeId)
     if (!next) return
     console.log("transom: moved " + id + " to " + section + (beforeId ? " before " + beforeId : ""))
@@ -618,15 +684,19 @@ Item {
     Util.execDetached(command)
   }
 
-  // Whether Hyprland has the window maximized (fullscreen mode 1).
-  function isMaximized(address) {
+  // A window's last snapshot (lastIpcObject), by address, or null.
+  function ipcOf(address) {
+    var wanted = TasksModel.normalizeAddress(address)
     var list = Hyprland.toplevels.values
     for (var i = 0; i < list.length; i++) {
-      if (TasksModel.normalizeAddress(list[i].address) !== address) continue
-      var ipc = list[i].lastIpcObject || {}
-      return Number(ipc.fullscreen) === 1
+      if (TasksModel.normalizeAddress(list[i].address) === wanted) return list[i].lastIpcObject || null
     }
-    return false
+    return null
+  }
+
+  // Whether Hyprland has the window maximized (fullscreen mode 1).
+  function isMaximized(address) {
+    return TasksModel.isMaximizedIpc(root.ipcOf(address))
   }
 
   // The steps that put a focused window on top of the others. A maximized
@@ -732,6 +802,32 @@ Item {
     }
   }
 
+  // Which screen each workspace was last on, kept after Hyprland drops an
+  // empty workspace, so a window minimized from a screen with no bar keeps
+  // its button on the bars there are (strict review R2-L5). As
+  // [{ id, monitorName }] for TasksModel.barlessWorkspaces.
+  property var workspaceScreenNames: Object.create(null)
+  readonly property var currentWorkspaceScreens: Hyprland.workspaces.values.map(function(workspace) {
+    return { id: workspace.id, monitorName: workspace.monitor ? String(workspace.monitor.name) : "" }
+  })
+  onCurrentWorkspaceScreensChanged: {
+    var next = Object.create(null)
+    for (var key in root.workspaceScreenNames) next[key] = root.workspaceScreenNames[key]
+    root.currentWorkspaceScreens.forEach(function(workspace) { if (workspace.monitorName) next[workspace.id] = workspace.monitorName })
+    root.workspaceScreenNames = next
+  }
+  readonly property var workspaceScreens: {
+    var out = []
+    for (var key in root.workspaceScreenNames) out.push({ id: Number(key), monitorName: root.workspaceScreenNames[key] })
+    return out
+  }
+  // The screens that have a bar, by name.
+  readonly property var barScreenNames: (Settings.toList(root.barScreens) || []).map(function(screen) { return String(screen.name) })
+  // The workspaces shown on screens with no bar.
+  readonly property var barlessActive: (Settings.toList(Hyprland.monitors.values) || []).filter(function(monitor) {
+    return root.barScreenNames.indexOf(String(monitor.name)) < 0 && monitor.activeWorkspace
+  }).map(function(monitor) { return monitor.activeWorkspace.id })
+
   // Which events start it: TasksModel.REFRESH_EVENTS ("pin", because a
   // pinned window's tags can change with it; the group events, because a
   // group's other tabs are hidden).
@@ -739,7 +835,9 @@ Item {
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      if (TasksModel.startsRefresh(event ? String(event.name) : "", refreshTimer.running)) refreshTimer.start()
+      var name = event ? String(event.name) : ""
+      var activeWasHidden = name === "activewindowv2" && TasksModel.hiddenOrGrouped(root.ipcOf(event.data))
+      if (TasksModel.startsRefresh(name, refreshTimer.running, activeWasHidden)) refreshTimer.start()
     }
   }
 
@@ -759,17 +857,9 @@ Item {
     target: "transom"
 
     function windows(): string {
-      var taskbarEntry = null
-      var sections = [root.layout.left, root.layout.center, root.layout.right]
-      for (var s = 0; s < sections.length; s++) {
-        for (var e = 0; e < sections[s].length; e++) if (sections[s][e].id === "tasks") taskbarEntry = sections[s][e]
-      }
-      var parsed = Settings.parse(taskbarEntry, TasksModel.SETTINGS)
+      var parsed = Settings.parse(root.entryFor("tasks"), TasksModel.SETTINGS)
       var known = Hyprland.workspaces.values.map(function(workspace) { return workspace.id })
-      var barNames = (Settings.toList(root.barScreens) || []).map(function(screen) { return String(screen.name) })
-      var barless = TasksModel.barlessWorkspaces(Hyprland.workspaces.values.map(function(workspace) {
-        return { id: workspace.id, monitorName: workspace.monitor ? workspace.monitor.name : "" }
-      }), barNames)
+      var barless = TasksModel.barlessWorkspaces(root.workspaceScreens, root.barScreenNames)
       var monitors = Hyprland.monitors.values.map(function(monitor) {
         return {
           name: monitor.name,
@@ -780,6 +870,7 @@ Item {
               .map(function(workspace) { return workspace.id }),
             knownWorkspaces: known,
             barlessWorkspaces: barless,
+            barlessActive: root.barlessActive,
             showMinimized: parsed.settings.minimized !== "hidden"
           }
         }
@@ -817,7 +908,7 @@ Item {
       try { parsed = JSON.parse(changes) } catch (error) { return "not JSON: " + error }
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "changes must be a JSON object"
       for (var key in parsed) if (parsed[key] === null) parsed[key] = undefined
-      root.updateWidget(id, parsed)
+      if (!root.updateWidget(id, parsed)) return "not saved: " + (id === "" ? "no widget id" : root.settingsProblem)
       return JSON.stringify(id === "bar" ? root.layout.bar : root.entryFor(id))
     }
 
@@ -861,12 +952,7 @@ Item {
     // goes with the current settings.
     //   omarchy-shell transom tray
     function tray(): string {
-      var trayEntry = null
-      var sections = [root.layout.left, root.layout.center, root.layout.right]
-      for (var s = 0; s < sections.length; s++) {
-        for (var e = 0; e < sections[s].length; e++) if (sections[s][e].id === "tray") trayEntry = sections[s][e]
-      }
-      var parsed = Settings.parse(trayEntry, TrayModel.SETTINGS)
+      var parsed = Settings.parse(root.entryFor("tray"), TrayModel.SETTINGS)
       var values = SystemTray.items.values
       var icons = []
       for (var i = 0; i < values.length; i++) {
@@ -880,7 +966,8 @@ Item {
         })
       }
       var shown = icons.filter(function(icon) { return !icon.passive })
-      var arranged = TrayModel.arrange(shown, parsed.settings, [root.topBarLayout, root.layout])
+      // The same layouts the bar's tray reads (switched-off entries left out).
+      var arranged = TrayModel.arrange(shown, parsed.settings, [root.topBarLayout, root.shownLayout])
       var place = Object.create(null)
       arranged.bar.forEach(function(key) { place[key] = "bar" })
       arranged.overflow.forEach(function(key) { place[key] = "overflow" })

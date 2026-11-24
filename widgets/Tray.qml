@@ -121,7 +121,9 @@ Item {
   // replaceLeftClick: false, or the app in nativeClick, skips 2 and 3.
   // ./tray-window gives the app's windows (by process, over D-Bus). The
   // "before" view is fetched when the pointer reaches the icon, so the
-  // app's own click isn't delayed.
+  // app's own click is never delayed: with no fresh view from the hover (or
+  // a click already being judged), the app gets its click and that's all
+  // (strict review R2-L6: clicks used to wait for a lookup, or be dropped).
   function leftClick(item, anchor) {
     var icon = tray.iconOf(item)
     var name = tray.nameOf(item)
@@ -135,16 +137,16 @@ Item {
       item.activate()
       return
     }
-    if (clickLookup.running || clickTimer.running) return
+    var fresh = tray.hoverView && tray.hoverView.item === item && Date.now() - tray.hoverView.at < 5000
+    if (!fresh || clickLookup.running || clickTimer.running) {
+      console.log("transom: tray " + name + " -> its own click (no view to judge it by)")
+      item.activate()
+      return
+    }
     tray.clickItem = item
     tray.clickAnchor = anchor
-    var fresh = tray.hoverView && tray.hoverView.item === item && Date.now() - tray.hoverView.at < 5000
-    if (fresh) {
-      tray.clickBefore = tray.hoverView.view
-      tray.clickAndWait()
-    } else {
-      tray.lookUp(clickLookup, item, "before")
-    }
+    tray.clickBefore = tray.hoverView.view
+    tray.clickAndWait()
   }
 
   property var clickItem: null
@@ -209,14 +211,6 @@ Item {
     var late = Date.now() - process.startedAt > tray.staleMs
     if (process.phase === "hover") {
       tray.hoverView = view.failed ? null : { item: process.item, view: view, at: Date.now() }
-    } else if (process.phase === "before") {
-      if (late) {
-        console.log("transom: tray " + tray.nameOf(process.item) + " -> no answer in time; the click is dropped")
-        tray.clickItem = null
-        return
-      }
-      tray.clickBefore = view
-      tray.clickAndWait()
     } else if (process.phase === "after") {
       if (late) {
         console.log("transom: tray " + tray.nameOf(process.item) + " -> no answer in time; the app had its click")

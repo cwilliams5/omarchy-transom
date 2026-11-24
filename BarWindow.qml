@@ -183,7 +183,8 @@ PanelWindow {
     y: window.shown ? 0 : height
     Behavior on y {
       enabled: !!window.bar && window.bar.settings.reveal === "slide"
-      NumberAnimation { duration: Style.duration(150); easing.type: Easing.OutCubic }
+      // Exits shorter than entrances (Omarchy's motion guidance).
+      NumberAnimation { duration: Style.duration(window.shown ? 150 : 100); easing.type: Easing.OutCubic }
     }
 
     Rectangle {

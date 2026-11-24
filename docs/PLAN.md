@@ -100,12 +100,86 @@ only by regexes over Service.qml.
   tests/mutations.json (every reviewer survivor), behaviour tests in place
   of the regex checks, and the scripts tested with stand-in commands.
 
-Fixed 2026-11-23, each with a test that fails without the fix: every item
-above is a mutation in tests/mutations.json (47, all killed with --all;
-`minimize-any-address` was dropped as equivalent: the client lookup already
-stops a fake address). R1-M4 waits for the release. R1-M5 is documented.
+Fixed 2026-11-23 (c61acf3). Round 2 found the claim "each with a test that
+fails without the fix" false for R1-L1, L4, L5, L6, L7, L10, L11 and the QML
+half of M3 (the code was fixed; no test failed without it). Those get
+tests in R2 where a seam allows, and are marked "by reading" below where
+none does. R1-M4 waits for the release. R1-M5 is documented.
 
-- [ ] **R2** A second strict-review round (fresh reviewers) on the fixes.
+### R2. Second strict review (2026-11-24, at c61acf3): fix list
+
+Two fresh reviewers again (`transom-review2-{safety,fit}.md`). Both found
+R1's high fixes holding (H1-H4, M1, M2, M6); no critical or high this
+round. Their own mutations: safety 5 of 17 killed, fit 7 of 32; nearly
+every survivor was QML or a script that no test loads.
+
+**Medium**
+- [x] **R2-M1 A click saves stale settings over a change the watcher
+  missed** (S F1, F L6): a symlinked transom.json replaced by a plain
+  file, or re-pointed, is never re-read. Fix: re-read the file before
+  every save and apply the change on top of what's there.
+- [x] **R2-M2 A tray lookup that failed still launches the app** (S F2):
+  tray-window's "not found" answer has no failure flag. Fix: it says
+  `failed` when the icon isn't found or a call fails.
+- [x] **R2-M3 The dropdown's choice rows stop following the settings
+  after a pick** (F M1): Omarchy's Dropdown assigns its own value; a
+  refused save then shows the picked value. Fix: re-bind after each pick.
+- [x] **R2-M4 Media and Indicators are offered for the bottom bar but
+  can't work there** (F M2): they need first-party services Omarchy gives
+  only to bar plugins. Fix: not offered; the README says which.
+- [x] **R2-M5 PLAN's test claim** (F M3): corrected above; tests added.
+
+**Low**
+- [x] **R2-L1 A failed save is cleared at once and reported once a
+  session** (S F3, F L1). Fix: keep it until a save works; notify again
+  after a problem has cleared; a readable message.
+- [x] **R2-L2 An editor's in-place save notifies** (F L5): the file is
+  read empty for a moment. Fix: pause at once, notify only if the
+  problem is still there half a second later.
+- [x] **R2-L3 "Show the taskbar" does nothing while saving is paused,
+  and says "shown"** (S F4). Fix: showing works in memory then, and
+  says it wasn't saved.
+- [x] **R2-L4 A file broken at start-up runs on the defaults,** middle-
+  click closing included (S F5). Fix: then the defaults minus anything
+  that closes or launches.
+- [x] **R2-L5 R1-H2 lasts only while the screen without a bar keeps the
+  workspace** (S F6). Fix: remember which screen each workspace was on.
+  Also (F L8): windows open on a screen without a bar show on the bars
+  there are, as on Windows.
+- [x] **R2-L6 Tray clicks swallowed** (S F7): during a lookup, or with a
+  late answer. Fix: the app always gets its click at once; the step-in
+  needs a fresh view from the hover.
+- [x] **R2-L7 The widget-gone timer writes transom.json** without a user
+  action (S F8). Fix: no write; a saved "hidden" applies again when the
+  widget comes back.
+- [x] **R2-L8 The slider's wheel writes per event** (F L2). Fix: one
+  debounce for keys and wheel.
+- [x] **R2-L9 Every focus change refreshes window data** (F L3). Fix:
+  `activewindowv2` refreshes only when the window was hidden (a group
+  tab).
+- [x] **R2-L10 The `tray` diagnostic reads switched-off entries** (F L4).
+- [x] **R2-L11 A hidden icon still counts as a panel** for Tab and
+  Omarchy's numbered panel keys (F L7). Fix: invisible, zero width.
+- [x] **R2-L12 Nits** (both): an empty id through `set`; a duplicated
+  line in WindowPreview; the diagnostics' own entry lookup; a stray
+  "the"; README test and file docs, dependencies; CLAUDE.md's "every pure
+  .js file"; exits not shorter than entrances in the slide.
+
+Fixed 2026-11-24. With a test that fails without the fix (each is a
+mutation in tests/mutations.json): M1, M2, M3, M4, L1, L2, L3, L5's
+belongsTo half, L7, L9, L11, and the R1 items round 2 found untested where a
+seam allowed (L1's `restorable`, L4's `target()` and `restoreWindow`
+through a stand-in hyprctl). By reading only: L4's use of the safe layout
+at start-up, L5's workspace memory, L6 (Tray.qml's click flow), L8's wheel
+path (the keys are tested), L10, and R1-L5/L7/L10/L11. Round 2 found no
+critical or high, so by the strict-review skill's rule the loop stops
+here; the mutation check runs every entry with --all before the release.
+
+Documented, not changed: Transom hides when Omarchy's bar is toggled off
+(by design: it follows the top bar); with Omarchy's bar at the bottom and
+auto-hide on, they overlap (R1-M5); the public CLAUDE.md keeps its
+maintainer section and working-copy path (the accepted template lines);
+`dev/` ships; the show-desktop double-click race (S nit).
 
 Kept as known limits: English only (F L5); `dev/` ships with the plugin
 (F L7); Hyprland's own `no_screen_share` blanking stays the real privacy

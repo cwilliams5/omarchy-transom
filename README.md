@@ -53,8 +53,8 @@ across a window. This one sits across all of yours.)
   clicks. Overflow "^", pinned and hidden icons, the apps' own menus, drag
   to reorder.
 - **Omarchy's own widgets, unchanged:** network, Bluetooth, battery,
-  Tailscale and any other, with their real panels. Drag them anywhere
-  along the bar.
+  Tailscale and most others (not Media or Indicators), with their real
+  panels. Drag them anywhere along the bar.
 - **Show desktop** in the corner, Windows-style.
 - **A right-click bar menu** for everything that matters, so you rarely need
   the settings file: lock the taskbar, auto-hide, icon style, combine,
@@ -114,8 +114,8 @@ middle; the tray and show desktop on the right. Everything else is opt-in.
 2x-scaled laptop screen and a virtual second monitor.
 
 **Dependencies:** none beyond Omarchy. Everything Transom runs ships with
-it: Hyprland (`hyprctl`), `jq`, `busctl`, `uwsm-app`, `gtk-launch`,
-`xdg-terminal-exec` and Omarchy's own commands. Only for development:
+it: Hyprland (`hyprctl`), `jq`, `busctl`, `ps`, `timeout`, `notify-send`,
+`uwsm-app`, `gtk-launch`, `xdg-terminal-exec` and Omarchy's own commands. Only for development:
 Python 3 for the test tools in `dev/`, and Qt's shader compiler
 (`qt6-shadertools`) to rebuild the icon tint shader.
 
@@ -250,9 +250,9 @@ as its bottom rail (left out while the taskbar is hidden).
 **Hiding the taskbar** (the bar option `visible`) takes it off every
 screen, and windows get the space back. It only works while the icon is on
 the top bar, since its switch is how you get the taskbar back: take the
-widget off the bar, or hide its icon, and the taskbar comes back by itself
-(on an install where removing the widget turns Transom off, it comes back
-as it was when you put the widget back, icon included). If the widget
+widget off the bar, or hide its icon, and the taskbar comes back by itself.
+Nothing is written then: when the widget is back, the taskbar is hidden
+again as you left it. If the widget
 doesn't show up within 10 seconds of the shell starting, the taskbar shows
 anyway. From a terminal or a key binding:
 `omarchy-shell transom show`, `hide` or `toggle` (and `omarchy-shell
@@ -537,6 +537,13 @@ everywhere), show desktop and the tray's restore act on that screen's
 workspace, and menus and Omarchy's panels open on the screen that was
 clicked.
 
+A screen without a bar (`screens` set to `"primary"` or a list, or "Show on
+all displays" off) has its windows shown on the bars there are, as Windows
+does with the taskbar on the main display only: the workspace it's showing
+("this workspace"), or all its workspaces ("this screen"). A window
+minimized there keeps its button too, even after Hyprland drops the empty
+workspace.
+
 Tested 2026-11-18 with a virtual second monitor
 (`hyprctl output create headless`): a second bar, a window on it shown only
 on its taskbar, the bar menu and the battery panel opening there, and
@@ -616,7 +623,9 @@ Any of Omarchy's own bar widgets can sit on the bottom bar, unchanged. Tick
 it on the bar menu's "Omarchy widgets" page, or add its id to a section,
 e.g. `{ "id": "omarchy.network" }` after the tray. Other plugins' widgets
 aren't offered: on this bar they get Transom's access to the shell, not
-their own, so most can't reach their plugin. (Typed into the file, one
+their own, so most can't reach their plugin. Neither are Omarchy's Media
+and Indicators widgets: they read services Omarchy gives only to its own
+bar, so on this one Media never appears and most indicators never light. (Typed into the file, one
 still loads, which suits those that find their plugin another way.)
 Transom's own top-bar widget is never hosted here: it would hide along
 with the taskbar it brings back. Ids are the
@@ -674,7 +683,9 @@ top bar runs, with its real panel, which opens upward.
 | `tray-window` | For a tray icon's left click: its app's process and most recent window (see System tray). |
 | `ui/AnchoredPopup.qml` | Base of every popup: sits above an item, closes on an outside click. Handles the two popup traps (see Developing). |
 | `ui/TooltipPopup.qml`, `ui/MenuCard.qml`, `ui/MenuItemRow.qml` | Tooltip, menu card and menu row in Omarchy's popup style. |
-| `tests/run.js` | Tests for the `.js` files: `node tests/run.js` |
+| `Hosting.js` | Which of Omarchy's widgets the bottom bar hosts. |
+| `CaptureCache.js`, `Registry.js` | Which windows are hidden from capture, remembered; the service handed to the top-bar widget. |
+| `tests/` | `run` runs everything: `run.js` (node, the `.js` files), `scripts.test.sh` (`minimize` and `tray-window` against stand-in commands), `widget.test.sh` (the real top-bar widget and service, offscreen). `mutate.js` plants `mutations.json` one at a time to check the tests catch each. |
 | `minimize` | Minimizes a window (the active one, or an address). Omarchy's minimize minus its floating-only check. |
 | `dev/` | Test tools: `vclick.py` (click and drag from a script) and `clicklog.py` (a terminal that counts clicks). |
 | `media/` | The README's screenshots. |
@@ -751,7 +762,10 @@ their id in a section (see "Omarchy's own widgets").
 `CLAUDE.md` has the maintainer's notes: the rules and why they exist, the
 platform facts Transom depends on, and how to test it live.
 
-- **Tests:** `node tests/run.js` covers the pure logic (`*.js`).
+- **Tests:** `tests/run` (about 20 s; nothing appears on screen and nothing
+  outside temp folders is touched). `node tests/mutate.js` checks that every
+  regression in `tests/mutations.json` fails a test. CLAUDE.md says what each
+  suite covers and what none does.
 - **Clicking and dragging from a script:** `dev/vclick.py` drives the pointer
   through Wayland's virtual-pointer protocol (Python only).
   - `--click-here` clicks where the pointer is (`--right`, `--middle` for

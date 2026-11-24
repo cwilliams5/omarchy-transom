@@ -66,10 +66,7 @@ Item {
     return ours.filter(function(address) {
       for (var i = 0; i < list.length; i++) {
         var window = TasksModel.describe(list[i])
-        // Still minimized, and from here: Hyprland reuses the address of a
-        // closed window (strict review R1-L1).
-        if (window.address === address) return window.workspaceName === TasksModel.MINIMIZED_WORKSPACE
-          && TasksModel.minimizedFrom(window.tags) === root.workspaceId
+        if (window.address === address) return TasksModel.restorable(window, root.workspaceId)
       }
       return false
     })

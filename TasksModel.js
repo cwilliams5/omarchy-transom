@@ -4,7 +4,7 @@
 
 // ------------------------------------------------------------- settings
 
-// Every taskbar setting, for Settings.parse. the layout (transom.json) overrides them on
+// Every taskbar setting, for Settings.parse. transom.json overrides them on
 // the taskbar's entry, e.g. { "id": "tasks", "align": "left" }. The README
 // explains each one.
 var SETTINGS = {
@@ -42,9 +42,22 @@ var REFRESH_EVENTS = ["openwindow", "movewindowv2", "changefloatingmode", "fulls
 
 // Whether an event starts the refresh timer: one of REFRESH_EVENTS, and only
 // when it isn't already running. Started, never restarted, so a steady
-// stream of events can't keep pushing the refresh back.
-function startsRefresh(name, timerRunning) {
-  return !timerRunning && REFRESH_EVENTS.indexOf(String(name || "")) >= 0
+// stream of events can't keep pushing the refresh back. activewindowv2
+// fires on every focus change (often, with focus following the pointer), so
+// it counts only when the window now active was hidden or grouped in the
+// last snapshot: a group tab switch (strict review R2-L9).
+function startsRefresh(name, timerRunning, activeWasHidden) {
+  var event = String(name || "")
+  if (timerRunning || REFRESH_EVENTS.indexOf(event) < 0) return false
+  return event !== "activewindowv2" || activeWasHidden === true
+}
+
+// Whether a window's last snapshot (lastIpcObject) shows it hidden or in a
+// group, for startsRefresh.
+function hiddenOrGrouped(ipc) {
+  if (!ipc) return false
+  var grouped = toList(ipc.grouped) || []
+  return ipc.hidden === true || grouped.length > 0
 }
 
 // A window that asks to be left off taskbars. Hyprland has no such
@@ -97,6 +110,20 @@ function skipsTaskbar(tags) {
   return false
 }
 
+// Whether a window's last snapshot shows it maximized: Hyprland's
+// fullscreen mode 1 (2 is real fullscreen). Only those need the stacking
+// workaround (CLAUDE.md rule 10).
+function isMaximizedIpc(ipc) {
+  return !!ipc && Number(ipc.fullscreen) === 1
+}
+
+// Whether show desktop may bring a window back to workspaceId: still
+// minimized, and minimized from there. Hyprland reuses a closed window's
+// address (strict review R1-L1).
+function restorable(window, workspaceId) {
+  return !!window && String(window.workspaceName || "") === MINIMIZED_WORKSPACE && minimizedFrom(window.tags) === workspaceId
+}
+
 // Hyprland's IPC writes addresses as 0x…; Quickshell sometimes drops the 0x.
 function normalizeAddress(address) {
   var value = String(address || "")
@@ -129,8 +156,9 @@ function describe(toplevel) {
 //   monitorWorkspaces  ids of the workspaces on the taskbar's screen
 //   knownWorkspaces    ids of every workspace that exists right now
 //   barlessWorkspaces  ids of the workspaces on screens with no Transom bar
-//                      (bar option screens), whose minimized windows have
-//                      no taskbar of their own
+//                      (bar option screens), as last seen (Hyprland drops
+//                      empty ones): their windows have no taskbar of their own
+//   barlessActive      ids of the workspaces those screens are showing
 //   showMinimized      false when minimized windows are hidden
 //
 // workspace: windows on the shown workspace, plus those minimized from it.
@@ -166,8 +194,10 @@ function belongsTo(window, view) {
   if (name.indexOf("special:") === 0) return false
   if (skipsTaskbar(window.tags)) return false
   if (mode === "all") return true
-  if (mode === "monitor") return onMonitor.indexOf(window.workspaceId) >= 0
-  return window.workspaceId === view.workspaceId
+  // A screen with no bar: its windows show on the bars there are, as on
+  // Windows with the taskbar on the main display only (strict review R2-L5).
+  if (mode === "monitor") return onMonitor.indexOf(window.workspaceId) >= 0 || (view.barlessWorkspaces || []).indexOf(window.workspaceId) >= 0
+  return window.workspaceId === view.workspaceId || (view.barlessActive || []).indexOf(window.workspaceId) >= 0
 }
 
 // ---------------------------------------------------------------- order
@@ -352,6 +382,9 @@ if (typeof module !== "undefined") {
     belongsTo: belongsTo,
     REFRESH_EVENTS: REFRESH_EVENTS,
     startsRefresh: startsRefresh,
+    hiddenOrGrouped: hiddenOrGrouped,
+    isMaximizedIpc: isMaximizedIpc,
+    restorable: restorable,
     barlessWorkspaces: barlessWorkspaces,
     skipsTaskbar: skipsTaskbar,
     applyOrder: applyOrder,

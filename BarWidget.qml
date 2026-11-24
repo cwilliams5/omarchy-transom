@@ -41,7 +41,7 @@ Panel {
 
   // Services can finish loading after the bar, and looking one up isn't a
   // binding, so keep asking until it answers. Omarchy's lookup works on its
-  // own top bar; Registry covers a replacement bar.
+  // own top bar; Registry.js (which the service fills in) works on any bar.
   property var service: null
   readonly property bool serviceReady: service !== null && service !== undefined
 
@@ -110,10 +110,13 @@ Panel {
   readonly property bool showIcon: !serviceReady || service.topBarIconShown
   readonly property bool vertical: !!bar && bar.vertical === true
 
-  // Not zero without the icon, or the bar leaves it out when Tab moves
-  // between panels (as Locus's widget does).
-  implicitWidth: showIcon ? button.implicitWidth : (vertical ? 0 : 1)
-  implicitHeight: showIcon ? button.implicitHeight : (vertical ? 1 : 0)
+  // Without its icon the widget is invisible and takes no room, so Omarchy's
+  // bar skips it for Tab and for its numbered panel keys (they count the
+  // panels a user can see; strict review R2-L11). It still exists, so it
+  // still counts itself with the service.
+  visible: showIcon
+  implicitWidth: showIcon ? button.implicitWidth : 0
+  implicitHeight: showIcon ? button.implicitHeight : 0
 
   // The two columns share whatever width the panel gets: it asks for
   // wantedWidth, but stays on screen, so near a screen edge it gets less.
@@ -150,7 +153,10 @@ Panel {
   property int pendingMaxIcons: -1
   function stepMaxIcons(delta) {
     var from = root.pendingMaxIcons >= 0 ? root.pendingMaxIcons : root.tray.maxIcons
-    root.pendingMaxIcons = Math.max(0, Math.min(TopBarWidget.sliderMax(from), from + delta))
+    root.queueMaxIcons(Math.min(TopBarWidget.sliderMax(from), from + delta))
+  }
+  function queueMaxIcons(value) {
+    root.pendingMaxIcons = Math.max(0, Math.round(value))
     maxIconsSave.restart()
   }
   Timer {
@@ -225,6 +231,15 @@ Panel {
   // What Enter does on each row, and what h/l do on the slider, by key.
   // Rows register themselves.
   property var rowActions: Object.create(null)
+
+  // The choice rows' dropdowns, by key (tests/widget.test.sh picks through them).
+  property var dropdowns: Object.create(null)
+  function registerDropdown(key, dropdown) {
+    var next = Object.create(null)
+    for (var existing in root.dropdowns) next[existing] = root.dropdowns[existing]
+    next[key] = dropdown
+    root.dropdowns = next
+  }
 
   function registerRow(key, action) {
     var next = Object.create(null)
@@ -675,7 +690,10 @@ Panel {
 
     readonly property bool popupOpen: choice.popupOpen
     onPopupOpenChanged: root.dropdownsOpen = Math.max(0, root.dropdownsOpen + (popupOpen ? 1 : -1))
-    Component.onCompleted: root.registerRow(choiceRow.key, function() { choice.open() })
+    Component.onCompleted: {
+      root.registerRow(choiceRow.key, function() { choice.open() })
+      root.registerDropdown(choiceRow.key, choice)
+    }
 
     Text {
       id: choiceLabel
@@ -701,7 +719,13 @@ Panel {
       options: choiceRow.options
       value: choiceRow.value
       hasCursor: root.cursorKey === choiceRow.key
-      onChanged: function(value) { choiceRow.picked(value) }
+      // Omarchy's Dropdown sets its own value on a pick, which breaks this
+      // binding: re-bind, so the row follows the setting again (a change from
+      // the bar menu or the file, or a save that was refused; R2-M3).
+      onChanged: function(value) {
+        choiceRow.picked(value)
+        choice.value = Qt.binding(function() { return choiceRow.value })
+      }
       onHovered: function(isHovered) { if (isHovered) root.cursorKey = choiceRow.key }
     }
   }
@@ -750,7 +774,9 @@ Panel {
       integer: true
       value: sliderRow.value
       enabled: root.serviceReady
-      onReleased: function(value) { root.setMaxIcons(value) }
+      // Released fires per wheel event too: through the same debounce as
+      // h/l, so a touchpad flick saves once (strict review R2-L8).
+      onReleased: function(value) { root.queueMaxIcons(value) }
     }
 
     // The cursor's mark, as a ring around the slider.

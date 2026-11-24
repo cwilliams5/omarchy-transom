@@ -126,6 +126,19 @@ ShellRoot {
     function hideBar(): string { return svc.hideTaskbar() }
     function showBar(): string { return svc.showTaskbar() }
     function widget(on: bool): string { widgetLoader.active = on; return String(svc.widgetCopies) }
+    // As Omarchy's Dropdown does on a pick: assign its value, then emit changed.
+    function pick(key: string, value: string): string {
+      var d = w.dropdowns[key]
+      if (!d) return "no dropdown"
+      d.value = value
+      d.changed(value)
+      return "ok"
+    }
+    function dropdownValue(key: string): string { var d = w.dropdowns[key]; return d ? String(d.value) : "no dropdown" }
+    function queueMaxIcons(n: int): string { w.queueMaxIcons(n); return "ok" }
+    function visibleIcon(): string { return String(w.visible) }
+    function focus(address: string): string { svc.focusWindow(address); return "ok" }
+    function restore(address: string, workspace: int): string { svc.restoreWindow(address, workspace); return "ok" }
     function layout(on: bool): string { fakeShell.widgetOnLayout = on; return String(svc.widgetOnBar) }
   }
 }
@@ -175,7 +188,7 @@ check "Show the taskbar off: hidden and saved" "$(st .shown),$(file .bar.visible
 check "...the bar menu button is gone while hidden" "$(st '.keys | index("menu")')" "null"
 wt cursor topBarIcon >/dev/null; wt activate >/dev/null; sleep 0.4
 check "hiding the icon shows the taskbar in the same save" "$(st .iconShown),$(st .shown),$(file .bar.topBarIcon),$(file .bar.visible)" "false,true,false,null"
-check "...and the widget takes no room" "$(st .width)" "1"
+check "...and the widget is invisible and takes no room (R2-L11)" "$(st .width),$(wt visibleIcon)" "0,false"
 check "hiding the taskbar is refused while the icon is hidden" "$(wt hideBar | cut -c1-10)" "not hidden"
 wt cursor topBarIcon >/dev/null; wt activate >/dev/null; sleep 0.4
 check "the icon comes back" "$(st .iconShown),$(file .bar.topBarIcon)" "true,null"
@@ -205,11 +218,47 @@ check "hidden again, with the widget on the bar" "$(st .shown)" "false"
 wt widget false >/dev/null; wt layout false >/dev/null; sleep 0.3
 check "the widget gone: it uncounts itself, but counts as there for a second (a rebuild)" "$(st .copies),$(st .onBar),$(st .shown)" "0,true,false"
 sleep 1.3
-check "...then the taskbar shows and the saved hidden is cleared" "$(st .onBar),$(st .shown),$(file .bar.visible)" "false,true,null"
+check "...then the taskbar shows, and nothing is written (R2-L7)" "$(st .onBar),$(st .shown),$(file .bar.visible)" "false,true,false"
 wt widget true >/dev/null; sleep 0.3; wt widget false >/dev/null; sleep 0.3; wt widget true >/dev/null; sleep 0.3
 check "a quick rebuild (gone and back within a second) keeps it on the bar" "$(st .copies),$(st .onBar)" "1,true"
 wt layout true >/dev/null; sleep 0.4
-check "the widget back: the taskbar stays shown" "$(st .copies),$(st .shown)" "1,true"
+check "the widget back: hidden again, as it was left" "$(st .copies),$(st .shown)" "1,false"
+wt showBar >/dev/null; sleep 0.4
+
+# The dropdown's choice rows follow the setting after a pick (R2-M3).
+wt pick combine always >/dev/null; sleep 0.4
+check "a pick in the dropdown is saved" "$(file '.center[] | select(.id == "tasks") | .combine')" '"always"'
+qs ipc -p "$dir/cfg" call transom set tasks '{"combine": "never"}' >/dev/null; sleep 0.4
+check "...and a change from elsewhere shows in the row afterwards" "$(wt dropdownValue combine)" "never"
+
+# The slider: a burst of releases (a touchpad flick) saves once (R2-L8).
+before=$(grep -c 'setting tray {"maxIcons":' "$dir/log.txt")
+for n in 4 5 6 7 8; do wt queueMaxIcons $n >/dev/null; done; sleep 0.6
+check "a burst on the slider saves once" "$(( $(grep -c 'setting tray {"maxIcons":' "$dir/log.txt") - before )),$(file '.right[] | select(.id == "tray") | .maxIcons')" "1,8"
+check "an empty widget id is refused, not saved" "$(qs ipc -p "$dir/cfg" call transom set '' '{}' | cut -c1-9)" "not saved"
+
+# A change the file watcher misses (a symlinked file replaced) isn't saved over (R2-M1).
+cfgfile="$home/.config/omarchy/transom.json"
+cp "$cfgfile" "$dir/target.json"; rm "$cfgfile"; ln -s "$dir/target.json" "$cfgfile"; sleep 0.6
+rm "$cfgfile"; jq '._marker = "kept"' "$dir/target.json" > "$cfgfile"; sleep 0.6
+wt cursor locked >/dev/null; wt activate >/dev/null; sleep 0.5
+check "a symlink replaced by a plain file: the next click keeps what's there" "$(file ._marker)" '"kept"'
+check "...and saves its change on top" "$(file .bar.locked)" "false"
+
+# In-place saves (an editor truncating first): no notification (R2-L2).
+before=$(grep -c '^notify-send' "$dir/calls.txt" 2>/dev/null || true)
+text=$(cat "$cfgfile"); : > "$cfgfile"; sleep 0.15; printf '%s\n' "$text" > "$cfgfile"; sleep 1
+check "an in-place save doesn't notify" "$(( $(grep -c '^notify-send' "$dir/calls.txt" 2>/dev/null || true) - before ))" "0"
+
+# A failed save: rolled back, and said until a save works (R2-L1).
+chmod 444 "$cfgfile"; chmod 555 "$home/.config/omarchy"
+wt cursor autohide >/dev/null; wt activate >/dev/null; sleep 0.6
+check "a save that fails rolls back and says so" "$(st '.problem | test("couldn.t be saved")'),$(file .bar.autohide)" "true,true"
+sleep 0.6
+check "...and keeps saying so" "$(st '.problem | test("couldn.t be saved")')" "true"
+chmod 755 "$home/.config/omarchy"; chmod 644 "$cfgfile"
+wt cursor autohide >/dev/null; wt activate >/dev/null; sleep 0.6
+check "...until a save works" "$(st .problem),$(file .bar.autohide)" ",false"
 
 # A typo in transom.json: shown, and nothing saved over it (R1-H4).
 printf '{ "bar": { "locked": true, }, "right": [] }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
@@ -217,11 +266,21 @@ check "a broken file is reported" "$(st '.problem | test("valid JSON")')" "true"
 cp "$home/.config/omarchy/transom.json" "$dir/broken.json"
 wt cursor autohide >/dev/null; wt activate >/dev/null; wt cursor shown >/dev/null; wt activate >/dev/null; wt maxIcons 2 >/dev/null; sleep 0.5
 check "...and clicks save nothing over it" "$(cmp -s "$dir/broken.json" "$home/.config/omarchy/transom.json" && echo same)" "same"
-check "...one notification says so" "$(grep -c '^notify-send' "$dir/calls.txt" 2>/dev/null)" "1"
+sleep 0.4
+check "...one notification says so" "$(grep -c "^notify-send.*isn't valid JSON" "$dir/calls.txt" 2>/dev/null)" "1"
+wt hideBar >/dev/null; sleep 0.3
+check "...hiding is refused while it's broken, and says so" "$(wt hideBar | cut -c1-10)" "not hidden"
+wt pick combine always >/dev/null; sleep 0.4
+check "...a pick that couldn't be saved snaps back to the setting" "$(wt dropdownValue combine)" "never"
 printf '{ "bar": { "locked": true }, "_note": "kept", "center": [{ "id": "tasks" }], "right": [{ "id": "tray" }] }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
 check "fixed: the problem clears" "$(st .problem)" ""
 wt cursor autohide >/dev/null; wt activate >/dev/null; sleep 0.5
 check "...saving works again, and keeps keys Transom doesn't know" "$(file .bar.autohide),$(file ._note)" 'true,"kept"'
+printf '{ "bar": { "visible": false }, "center": [{ "id": "tasks" }], "right": [{ "id": "tray" }] }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
+check "hidden in a good file" "$(st .shown)" "false"
+printf '{ "bar": { "visible": false, }, "right": [] }\n' > "$home/.config/omarchy/transom.json"; sleep 1
+check "the same JSON error a second time notifies again (R2-L1)" "$(grep -c "^notify-send.*isn't valid JSON" "$dir/calls.txt")" "2"
+check "while broken, Show the taskbar still works, in memory (R2-L3)" "$(wt showBar | cut -c1-22),$(st .shown)" "shown, but not saved: ,true"
 printf '{ "right": { "id": "tray" } }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
 check "a section that isn't a list is a problem too" "$(st '.problem | test("must be a list")')" "true"
 
@@ -230,5 +289,12 @@ check "no QML errors" "$errors" ""
 # Omarchy's own Style reads a few Hyprland options (hyprctl -j getoption):
 # read-only, and not Transom's. Anything else is a failure.
 check "nothing else ran on the desktop" "$(grep -v -e '^hyprctl -j getoption ' -e '^notify-send ' "$dir/calls.txt" 2>/dev/null)" ""
+# The real dispatch path (Service.qml), through the stand-in hyprctl.
+: > "$dir/calls.txt"
+wt focus '0x1" }) ; hl.exec("x' >/dev/null; wt restore 0xabc -1 >/dev/null; wt restore 0xabc 2 >/dev/null; sleep 0.8
+check "a target that isn't an address never reaches Hyprland's Lua (R1-L4)" "$(grep -c 'hl.exec' "$dir/calls.txt"),$(grep -c 'address:0x0' "$dir/calls.txt")" "0,2"
+check "a restore to a workspace that isn't one does nothing; a real one dispatches there" \
+  "$(grep -c 'workspace = "-1"' "$dir/calls.txt"),$(grep -c 'workspace = "2"' "$dir/calls.txt")" "0,1"
+
 [ $fail = 0 ] || { echo "--- shell log (last 30 lines)"; tail -30 "$dir/log.txt"; }
 exit $fail

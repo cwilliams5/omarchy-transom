@@ -94,7 +94,6 @@ Item {
         var answer = text.trim()
         var known = answer === "true" || answer === "false"
         if (known) CaptureCache.remember(privacy.asked, answer === "true")
-        if (privacy.asked !== preview.cacheKey) return
         privacy.busy = false
         if (privacy.asked !== preview.cacheKey) return
         preview.protectedWindow = answer === "true"

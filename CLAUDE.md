@@ -30,8 +30,9 @@ What 0.2.0 adds:
   `tests/widget.test.sh` (the real widget and service, offscreen),
   `tests/scripts.test.sh` and the mutation check (`tests/mutate.js`).
 
-Next (`docs/PLAN.md`): a second strict-review round to confirm R1 is clean,
-then release 0.2.0 and the marketplace's "Plugin verification" request
+Next (`docs/PLAN.md`): two strict-review rounds are done (R1 at f5c2fbf,
+R2 at c61acf3); R2 found no critical or high, and its findings are fixed.
+Then release 0.2.0 and the marketplace's "Plugin verification" request
 (the maintainer approves both first).
 
 Decided 2026-11-23: removing the widget turns Transom off for installs
@@ -249,11 +250,14 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     start; after that a widget listed but never drawn (broken by an update,
     a replacement bar) is no way back (R1-M1). Transom's own widget is never
     hosted on its own bar (`Hosting.canHost`, R1-H3). When the last copy
-    has been gone a second, the taskbar shows and a saved "hidden" is
-    cleared; hiding the icon shows the taskbar in the same save. On an
-    install Omarchy lists only on the bar, removing the widget stops
-    Transom outright, so it comes back as it was, icon included. Transom
-    reads shell.json (the plugins list) but never writes it.
+    has been gone a second, the taskbar shows; nothing is written, so a
+    saved "hidden" applies again when the widget comes back (R2-L7: a
+    monitor change used to rewrite the file). Hiding the icon shows the
+    taskbar in the same save, and a hidden icon is invisible with no width,
+    so Omarchy's bar skips it for Tab and its numbered panel keys (R2-L11).
+    On an install Omarchy lists only on the bar, removing the widget stops
+    Transom outright, so it comes back as it was. Transom reads shell.json
+    (the plugins list) but never writes it.
 17. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
     untrusted text reaching Hyprland's Lua. `Service.target()` accepts only
@@ -262,15 +266,25 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     `Settings.readLayout` reports invalid JSON, a section that isn't a
     list, entries without an id; while any is open (`settingsError`)
     `saveLayout` refuses, the bar menu and the dropdown say so, and one
-    notification is sent. Keys Transom doesn't know are kept. A failed save
-    rolls memory back to what's on disk (`saveError`). Why: a typo made the
-    next click replace the whole file with the defaults (R1-H4).
+    notification is sent (once the problem has lasted half a second, so an
+    editor's in-place save doesn't trigger it; again after one clears).
+    Keys Transom doesn't know are kept. Before every save the file is read
+    again through a FileView of its own (`refreshFromDisk`), so a change the
+    watcher missed (a replaced symlink) is never saved over (R2-M1). A failed
+    save rolls memory back to what's on disk and says so until a save works
+    (`saveError`). Showing the taskbar works while saving is paused, in
+    memory, since it's the way back (R2-L3). A file broken at start-up runs
+    on the defaults minus anything that closes or launches
+    (`Settings.safeLayout`, R2-L4). Why: a typo made the next click replace
+    the whole file with the defaults (R1-H4).
 19. **Helpers have deadlines, and a late or failed answer does nothing.**
     `tray-window` runs under `timeout 3`, each `busctl --timeout=1`, with
-    `--` before app-chosen bus names. A tray click whose lookup answers
-    after 1.5 s is dropped, and a failed lookup never reads as "nothing
-    changed, launch it" (R1-M3: one hung app made a click land a minute
-    later).
+    `--` before app-chosen bus names; any answer it can't vouch for says
+    `failed`. A tray click goes to the app at once, always; the step-in
+    needs a fresh view from the hover, an "after" view that answers within
+    1.5 s, and neither may have failed, or it does nothing (R1-M3, R2-M2,
+    R2-L6: a hung app once made a click land a minute late, then launch a
+    second copy).
 20. **Unreleased work stays on a branch.** `omarchy plugin update` pulls
     main, so main is what every user runs, marketplace verification or not
     (R1-M4).
@@ -388,8 +402,22 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   its bar on the bottom edge too; Transom always takes the bottom, so the
   two stack there (R1-M5, a known limit; following Omarchy's bar to the
   other edge would need every popup to open downward).
-- **FileView** (Quickshell 0.3.2) sends `saved` or `saveFailed` after
-  `setText`, and nothing for text that's unchanged.
+- **FileView** (Quickshell 0.3.2):
+  - sends `saved` or `saveFailed` after `setText`, and nothing for text
+    that's unchanged;
+  - once a watched symlink is replaced or re-pointed it keeps reading (and
+    watching) the old target, even on `reload()`: point it at the path
+    afresh (`reattachUserFile`);
+  - `blockLoading` doesn't make `reload()` wait; `blockAllReads` makes
+    `text()` wait for the read.
+- **Omarchy's `Dropdown` assigns its own `value` on a pick**, which breaks
+  a binding on it: re-bind in `onChanged` (R2-M3). `PanelSlider` emits
+  `released` on every wheel event, so debounce saves (R2-L8).
+- **Omarchy's bar counts a panel for Tab and its numbered panel keys only
+  while it's visible with a size** (`Bar.qml` `panelNavigationSlots`).
+- **`firstPartyServiceFor`** (media, idle, nightlight, notifications,
+  remote-session) is given only to plugins of kind `bar`, so Omarchy's
+  Media widget and most indicators can't work on Transom's bar (R2-M4).
 - **Quickshell caches QML.** Saving a file in the plugin folder makes Omarchy
   reload the plugin, but already-loaded QML stays cached, so the old code
   runs. `omarchy restart shell` after any QML change (it refuses while the
@@ -419,11 +447,12 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 - **Tests:** `tests/run` before every commit (about 20 s, nothing on
   screen, nothing written outside temp folders):
-  - `node tests/run.js` (119 tests): every pure `.js` file.
-  - `tests/scripts.test.sh` (9 checks): `minimize` and `tray-window`
+  - `node tests/run.js` (123 tests): every pure `.js` file but `CaptureCache.js`
+    and `Registry.js` (`.pragma library`, which node can't load).
+  - `tests/scripts.test.sh` (12 checks): `minimize` and `tray-window`
     against stand-in `hyprctl` and `busctl` that log and answer from
     fixtures.
-  - `tests/widget.test.sh` (39 checks): the real `BarWidget.qml` and
+  - `tests/widget.test.sh` (53 checks): the real `BarWidget.qml` and
     `Service.qml` in a throwaway Quickshell on Qt's offscreen platform,
     with HOME and the XDG folders in a temp folder, no Hyprland connection,
     `BarWindow.qml` stubbed (layer-shell windows can't exist offscreen) and
@@ -436,10 +465,12 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     It runs the unmutated suite first and stops if that fails. Add an
     entry for every fix.
   - **Not covered by any test** (checked live, or by reading): the bars
-    themselves (`BarWindow.qml`, auto-hide, drag), the taskbar's and tray's
-    QML (`Tasks.qml` actions, `Tray.qml`'s click timing and stale-result
-    drop, `ShowDesktop.qml`, `WindowPreview.qml`'s privacy check),
-    `BarMenu.qml`, and Hyprland dispatches.
+    themselves (`BarWindow.qml`, auto-hide, drag), `Tasks.qml`'s actions,
+    `Tray.qml`'s click flow and late-answer drop, `ShowDesktop.qml` beyond
+    `TasksModel.restorable`, `WindowPreview.qml`'s privacy check, `BarMenu.qml`,
+    and Service.qml's workspace memory (`workspaceScreens`). The widget test
+    does run the real dispatch path (`focusWindow`, `restoreWindow`) through
+    a stand-in `hyprctl`.
 - **Try a change live:** commit on a branch in the working copy, then
   ```bash
   live=~/.config/omarchy/plugins/io.github.cwilliams5.transom

@@ -63,22 +63,20 @@ Item {
   readonly property var view: {
     var onMonitor = []
     var known = []
-    var all = []
     var workspaces = Hyprland.workspaces.values
     for (var i = 0; i < workspaces.length; i++) {
       known.push(workspaces[i].id)
       if (workspaces[i].monitor === taskbar.monitor) onMonitor.push(workspaces[i].id)
-      all.push({ id: workspaces[i].id, monitorName: workspaces[i].monitor ? workspaces[i].monitor.name : "" })
     }
-    // Screens with no bar (bar option screens): their minimized windows
-    // show here, or nowhere would.
-    var barNames = (Settings.toList(taskbar.bar ? taskbar.bar.barScreens : []) || []).map(function(screen) { return String(screen.name) })
     return {
       mode: taskbar.cfg.windows,
       workspaceId: taskbar.workspaceId,
       monitorWorkspaces: onMonitor,
       knownWorkspaces: known,
-      barlessWorkspaces: TasksModel.barlessWorkspaces(all, barNames),
+      // Screens with no bar (bar option screens): their windows show here,
+      // or nowhere would (Service.workspaceScreens remembers dropped ones).
+      barlessWorkspaces: taskbar.bar ? TasksModel.barlessWorkspaces(taskbar.bar.workspaceScreens, taskbar.bar.barScreenNames) : [],
+      barlessActive: taskbar.bar ? taskbar.bar.barlessActive : [],
       showMinimized: taskbar.cfg.minimized !== "hidden"
     }
   }

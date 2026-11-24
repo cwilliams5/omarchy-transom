@@ -124,6 +124,22 @@ function readLayout(text, sections) {
   return { layout: layout, problems: problems }
 }
 
+// The layout to run on while the user's file has never been read whole
+// this session (broken at start-up): as given (the defaults), minus anything
+// that closes or launches, which the user may have switched off in the file
+// that can't be read (strict review R2-L4).
+function safeLayout(layout, sections) {
+  var out = JSON.parse(JSON.stringify(layout || {}))
+  for (var s = 0; s < sections.length; s++) {
+    var list = Array.isArray(out[sections[s]]) ? out[sections[s]] : []
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === "tasks") list[i].middleClick = "nothing"
+      if (list[i].id === "tray") list[i].replaceLeftClick = false
+    }
+  }
+  return out
+}
+
 // Every setting's default, as a plain object.
 function defaults(spec) {
   var out = {}
@@ -132,5 +148,5 @@ function defaults(spec) {
 }
 
 if (typeof module !== "undefined") {
-  module.exports = { toList: toList, parse: parse, defaults: defaults, readLayout: readLayout }
+  module.exports = { toList: toList, parse: parse, defaults: defaults, readLayout: readLayout, safeLayout: safeLayout }
 }

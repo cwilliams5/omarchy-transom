@@ -33,7 +33,9 @@ set -u
 bus_call() { busctl --user --json=short --timeout=1 -- "$@" 2>/dev/null; }
 want=${1:-}
 name=${2:-}
-none='{"pid": null, "menuOnly": false, "window": null, "minimized": false, "windows": [], "focused": null}'
+# The icon not found, or a call failed: "failed", so the tray never reads
+# it as "nothing changed" and starts the app (strict review R2-M2).
+none='{"failed": true, "pid": null, "menuOnly": false, "window": null, "minimized": false, "windows": [], "focused": null}'
 
 items=$(bus_call get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
   org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems | jq -r '.data[]?')
@@ -56,7 +58,7 @@ for item in $items; do
   [[ $is_menu == true || $path == */ayatana/* || $menu_path == */ayatana/* || $menu_path == */NotificationItem/* ]] && menu_only=true
 
   if [[ ! $pid =~ ^[0-9]+$ ]]; then
-    jq -cn --argjson menuOnly "$menu_only" '{pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
+    jq -cn --argjson menuOnly "$menu_only" '{failed: true, pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
     exit 0
   fi
 

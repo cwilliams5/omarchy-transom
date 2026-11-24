@@ -56,13 +56,6 @@
     "why": "hideTaskbar accepts with the icon hidden"
   },
   {
-    "name": "widget-gone-keeps-hidden",
-    "file": "Service.qml",
-    "find": "      root.updateWidget(\"bar\", { visible: undefined })\n    }\n  }",
-    "replace": "    }\n  }",
-    "why": "re-adding the widget hides the taskbar by surprise"
-  },
-  {
     "name": "widget-counts-from-stale-binding",
     "file": "BarWidget.qml",
     "find": "    if (service === null || service === undefined) return",
@@ -233,8 +226,8 @@
   {
     "name": "refresh-restarted",
     "file": "TasksModel.js",
-    "find": "  return !timerRunning && REFRESH_EVENTS.indexOf(String(name || \"\")) >= 0",
-    "replace": "  return REFRESH_EVENTS.indexOf(String(name || \"\")) >= 0",
+    "find": "  if (timerRunning || REFRESH_EVENTS.indexOf(event) < 0) return false",
+    "replace": "  if (REFRESH_EVENTS.indexOf(event) < 0) return false",
     "why": "rule 12: a stream of events starves the refresh"
   },
   {
@@ -327,5 +320,117 @@
     "find": "      root.stepMaxIcons(dx)",
     "replace": "      root.setMaxIcons(root.tray.maxIcons + dx)",
     "why": "held keys write the file per repeat"
+  },
+  {
+    "name": "r2-no-reread-before-save",
+    "file": "Service.qml",
+    "find": "    if (typeof id !== \"string\" || id === \"\") return false\n    root.refreshFromDisk()\n",
+    "replace": "    if (typeof id !== \"string\" || id === \"\") return false\n",
+    "why": "R2-M1: a click saves over a change the watcher missed"
+  },
+  {
+    "name": "r2-notify-without-settle",
+    "file": "Service.qml",
+    "find": "    interval: 500\n    onTriggered: {\n      var problem = root.settingsProblem",
+    "replace": "    interval: 0\n    onTriggered: {\n      var problem = root.settingsProblem",
+    "why": "R2-L2: an editor's in-place save notifies"
+  },
+  {
+    "name": "r2-notify-once-a-session",
+    "file": "Service.qml",
+    "find": "      root.notifiedProblem = \"\"\n      problemNotice.stop()",
+    "replace": "      problemNotice.stop()",
+    "why": "R2-L1: the same problem again is silent"
+  },
+  {
+    "name": "r2-show-refused-while-paused",
+    "file": "Service.qml",
+    "find": "    if (root.settingsError !== \"\") {\n      // Showing is the way back",
+    "replace": "    if (false) {\n      // Showing is the way back",
+    "why": "R2-L3: no way back while the file is broken"
+  },
+  {
+    "name": "r2-safe-layout-keeps-close",
+    "file": "Settings.js",
+    "find": "      if (list[i].id === \"tasks\") list[i].middleClick = \"nothing\"\n",
+    "replace": "",
+    "why": "R2-L4: a broken start-up closes windows on middle-click"
+  },
+  {
+    "name": "r2-gone-writes-file",
+    "file": "Service.qml",
+    "find": "      if (root.settings.visible === false) console.log(\"transom: the top-bar widget is gone, so the taskbar shows\")",
+    "replace": "      if (root.settings.visible === false) root.updateWidget(\"bar\", { visible: undefined })",
+    "why": "R2-L7: a monitor change rewrites the file"
+  },
+  {
+    "name": "r2-tray-not-failed",
+    "file": "tray-window",
+    "find": "none='{\"failed\": true, \"pid\": null,",
+    "replace": "none='{\"pid\": null,",
+    "why": "R2-M2: a failed tray lookup launches the app"
+  },
+  {
+    "name": "r2-dropdown-binding-lost",
+    "file": "BarWidget.qml",
+    "find": "        choice.value = Qt.binding(function() { return choiceRow.value })\n",
+    "replace": "",
+    "why": "R2-M3: the dropdown drifts from the settings"
+  },
+  {
+    "name": "r2-hidden-icon-counted",
+    "file": "BarWidget.qml",
+    "find": "  visible: showIcon\n",
+    "replace": "",
+    "why": "R2-L11: a hidden icon shifts Omarchy's panel keys"
+  },
+  {
+    "name": "r2-media-offered",
+    "file": "Hosting.js",
+    "find": "    if (NEEDS_BAR_SERVICES.indexOf(id) >= 0) continue\n",
+    "replace": "",
+    "why": "R2-M4: dead widgets offered"
+  },
+  {
+    "name": "r2-barless-windows-hidden",
+    "file": "TasksModel.js",
+    "find": "  return window.workspaceId === view.workspaceId || (view.barlessActive || []).indexOf(window.workspaceId) >= 0",
+    "replace": "  return window.workspaceId === view.workspaceId",
+    "why": "R2-L5: windows on a screen without a bar get no button"
+  },
+  {
+    "name": "r2-every-focus-refreshes",
+    "file": "TasksModel.js",
+    "find": "  return event !== \"activewindowv2\" || activeWasHidden === true",
+    "replace": "  return true",
+    "why": "R2-L9: every focus change refreshes"
+  },
+  {
+    "name": "r2-restorable-any-origin",
+    "file": "TasksModel.js",
+    "find": "String(window.workspaceName || \"\") === MINIMIZED_WORKSPACE && minimizedFrom(window.tags) === workspaceId",
+    "replace": "String(window.workspaceName || \"\") === MINIMIZED_WORKSPACE",
+    "why": "R1-L1: show desktop restores a reused address"
+  },
+  {
+    "name": "r2-fullscreen-as-maximized",
+    "file": "TasksModel.js",
+    "find": "  return !!ipc && Number(ipc.fullscreen) === 1",
+    "replace": "  return !!ipc && Number(ipc.fullscreen) >= 1",
+    "why": "rule 10: real fullscreen takes the maximized workaround"
+  },
+  {
+    "name": "r2-target-unchecked",
+    "file": "Service.qml",
+    "find": "    if (!/^0x[0-9a-fA-F]+$/.test(value)) value = \"0x0\"\n",
+    "replace": "",
+    "why": "R1-L4: anything reaches Hyprland's Lua"
+  },
+  {
+    "name": "r2-restore-any-workspace",
+    "file": "Service.qml",
+    "find": "  function restoreWindow(address, workspaceId) {\n    if (!(workspaceId >= 1)) return\n",
+    "replace": "  function restoreWindow(address, workspaceId) {\n",
+    "why": "a restore to workspace -1"
   }
 ]

@@ -30,7 +30,7 @@ echo "\$*" >> "$dir/busctl.txt"
 args=" \$* "
 case "\$args" in
   *" RegisteredStatusNotifierItems "*) echo '{"type":"as","data":["-Hevil.example/StatusNotifierItem",":1.5/StatusNotifierItem"]}' ;;
-  *" :1.5 /StatusNotifierItem org.kde.StatusNotifierItem Id "*) echo '{"type":"s","data":"discord"}' ;;
+  *" :1.5 /StatusNotifierItem org.kde.StatusNotifierItem Id "*) [ -n "\${ID_FAILS:-}" ] && exit 1; echo '{"type":"s","data":"discord"}' ;;
   *" GetConnectionUnixProcessID s :1.5 "*) echo '{"type":"u","data":[4242]}' ;;
   *" ItemIsMenu "*) echo '{"type":"b","data":false}' ;;
   *" Menu "*) echo '{"type":"o","data":"/MenuBar"}' ;;
@@ -74,5 +74,8 @@ check "tray-window finds the app's window" "$(jq -c '{pid, window, focused}' <<<
 check "every busctl call has a deadline and \"--\" before app-chosen names (R1-M3, R1-L3)" \
   "$(grep -c -v -e '--timeout=1 -- ' "$dir/busctl.txt")" "0"
 check "a bus name shaped like an option is never passed on" "$(grep -c 'evil' "$dir/busctl.txt")" "0"
+check "the app's D-Bus call failing: \"failed\", never a plain \"nothing\" (R2-M2)" "$(ID_FAILS=1 "$repo/tray-window" discord discord | jq -c .failed)" "true"
+check "no icon id: \"failed\"" "$("$repo/tray-window" "" "" | jq -c .failed)" "true"
+check "...and the answer for a found app has no failure flag" "$(jq -c .failed <<<"$out")" "null"
 
 exit $fail
