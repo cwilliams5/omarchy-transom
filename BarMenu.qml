@@ -97,6 +97,16 @@ AnchoredPopup {
       onTriggered: menu.change("bar", { autohide: !checked })
     }
 
+    // The top-bar widget's icon (bar option topBarIcon), once the widget is
+    // on a bar. Here because a hidden icon can't open its own dropdown.
+    MenuItemRow {
+      visible: menu.page === "main" && !!menu.bar && menu.bar.widgetOnBar
+      text: "Top-bar icon"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.topBarIconShown
+      onTriggered: menu.bar.setTopBarIconShown(!menu.bar.topBarIconShown)
+    }
+
     // Steps through the icon styles on each click: app icons (the tray and
     // quick launch), then window icons (the taskbar buttons).
     MenuItemRow {

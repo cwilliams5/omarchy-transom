@@ -24,13 +24,16 @@ import "TopBarWidget.js" as TopBarWidget
 // off hides its rows while it's off. Keyboard: j/k or the arrows move, h/l
 // step the slider, Enter acts.
 //
-// Service.qml does the work; this reads its state and calls it. Omarchy's
-// bar settings give the widget a "Show icon" switch: off, it takes no room
-// but stays on the bar. That matters because Omarchy runs a plugin with a
+// Service.qml does the work; this reads its state and calls it. The
+// dropdown's "Top-bar icon" switch (the bar option topBarIcon, also in the
+// bottom bar's menu) hides the icon: the widget then takes no room but
+// stays on the bar. That matters because Omarchy runs a plugin with a
 // widget only while the widget is on a bar, unless the plugin is also in
-// shell.json's plugins list (see the README, "Top-bar widget"). A hidden
-// taskbar also needs the widget on a bar: its switch is the way back
-// (Service.taskbarShown).
+// shell.json's plugins list (see the README, "Top-bar widget"); the switch
+// warns when that's the case here (Service.iconKeepsTransomOn). A hidden
+// taskbar needs the icon: its switch is the way back (Service.taskbarShown).
+// Omarchy 4.5 has no screen for a widget's own settings, which is why this
+// isn't one.
 Panel {
   id: root
   moduleName: TopBarWidget.PLUGIN_ID
@@ -68,12 +71,16 @@ Panel {
     root.countedBy = null
   }
 
+  // Reads service itself, not serviceReady: in onServiceChanged that
+  // binding can still hold its old value (seen live: the widget never
+  // counted itself).
   function syncCount() {
-    if (root.countedBy === root.service) return
+    var service = root.service
+    if (root.countedBy === service) return
     root.uncount()
-    if (!root.serviceReady) return
-    root.countedBy = root.service
-    root.countedBy.widgetCopies += 1
+    if (service === null || service === undefined) return
+    root.countedBy = service
+    service.widgetCopies += 1
   }
 
   // ---------------------------------------------------------------- state
@@ -95,7 +102,7 @@ Panel {
   readonly property bool focusedInColor: !(barSettings.iconStyleOn && barSettings.iconStyleOn.activeWindow === true)
   readonly property bool anyThemed: iconStyle === "themed" || windowIconStyle === "themed"
 
-  readonly property bool showIcon: setting("showIcon", true) !== false
+  readonly property bool showIcon: !serviceReady || service.topBarIconShown
   readonly property bool vertical: !!bar && bar.vertical === true
 
   // Not zero without the icon, or the bar leaves it out when Tab moves
@@ -120,6 +127,13 @@ Panel {
 
   function toggleTaskbar() {
     if (root.serviceReady) root.service.toggleTaskbar()
+  }
+
+  // The dropdown hangs off the icon, so it closes first.
+  function hideIcon() {
+    if (!root.serviceReady) return
+    root.close()
+    root.service.setTopBarIconShown(false)
   }
 
   function setMaxIcons(value) {
@@ -168,6 +182,7 @@ Panel {
   readonly property var navKeys: {
     var keys = ["shown", "autohide", "locked"]
     if (root.severalScreens) keys.push("screens")
+    keys.push("topBarIcon")
     keys.push("tasks")
     if (root.tasksOn) keys = keys.concat(["iconsOnly", "combine", "thumbnails", "plainTitles", "windows"])
     keys.push("tray")
@@ -353,6 +368,30 @@ Panel {
                 label: "Show on all displays"
                 checked: root.barSettings.screens === "all"
                 onToggled: root.change("bar", { screens: root.barSettings.screens === "all" ? "primary" : "all" })
+              }
+
+              // This icon. Off, it's gone from the top bar (the bottom bar's
+              // menu brings it back) and the taskbar shows.
+              SwitchRow {
+                key: "topBarIcon"
+                label: "Top-bar icon"
+                checked: root.showIcon
+                onToggled: {
+                  if (root.showIcon) root.hideIcon()
+                  else if (root.serviceReady) root.service.setTopBarIconShown(true)
+                }
+              }
+
+              // Only where removing the icon would turn Transom off.
+              Text {
+                visible: root.serviceReady && root.service.iconKeepsTransomOn
+                width: root.columnWidth
+                textFormat: Text.PlainText
+                wrapMode: Text.Wrap
+                text: "Removing this icon from the bar turns Transom off on this computer. To get rid of it, switch it off here instead."
+                color: Qt.darker(root.bar.foreground, 1.4)
+                font.family: root.bar.fontFamily
+                font.pixelSize: Style.font.caption
               }
 
               Item { width: 1; height: Style.space(4) }

@@ -736,8 +736,27 @@ test("manifest: the widget is optional and the service is still its own kind", (
   assert.strictEqual(manifest.entryPoints.service, "Service.qml")
   assert.strictEqual(manifest.entryPoints.barWidget, "BarWidget.qml")
   assert.strictEqual(manifest.barWidget.allowMultiple, false)
-  const showIcon = manifest.barWidget.schema.find((field) => field.key === "showIcon")
-  assert.ok(showIcon && showIcon.defaultValue === true && manifest.barWidget.defaults.showIcon === true)
+  // Omarchy 4.5 shows a widget's own settings nowhere, so the icon's switch
+  // is Transom's (topBarIcon), not a widget setting.
+  assert.ok(!("schema" in manifest.barWidget) && !("defaults" in manifest.barWidget))
+})
+
+test("the bar option topBarIcon exists, and hiding the icon brings the taskbar back", () => {
+  const service = require("fs").readFileSync(path.join(__dirname, "..", "Service.qml"), "utf8")
+  assert.ok(/\n    topBarIcon: \{ default: true \},/.test(service))
+  assert.ok(service.includes('{ topBarIcon: false, visible: undefined }'), "one save hides the icon and shows the taskbar")
+  assert.ok(/taskbarShown: TopBarWidget\.taskbarShown\(root\.settings\.visible, root\.widgetOnBar && root\.topBarIconShown\)/.test(service))
+  // Hidden icon, hidden taskbar: never both.
+  assert.strictEqual(W.taskbarShown(false, true && false), true)
+})
+
+test("Transom in shell.json's plugins list: ids or entries, unknown when unreadable", () => {
+  assert.strictEqual(W.listedInPlugins([{ id: "x" }, { id: W.PLUGIN_ID }]), true)
+  assert.strictEqual(W.listedInPlugins(["x", W.PLUGIN_ID]), true)
+  assert.strictEqual(W.listedInPlugins([{ id: "x" }, null, 3]), false)
+  assert.strictEqual(W.listedInPlugins([]), false)
+  for (const odd of [null, undefined, "x", 3, {}]) assert.strictEqual(W.listedInPlugins(odd), null, JSON.stringify(odd))
+  assert.strictEqual(W.listedInPlugins({ length: 1, 0: { id: W.PLUGIN_ID } }), true, "a Qt sequence")
 })
 
 // ------------------------------------------------------------ icon styles
@@ -824,6 +843,14 @@ test("top-bar widget: theme color choices are iconTint's, and the slider fits an
   assert.strictEqual(W.sliderMax(30), 30, "a larger saved value stretches the slider instead of being cut")
   assert.strictEqual(W.sliderMax("x"), W.MAX_ICONS_SLIDER)
   assert.ok(T.SETTINGS.maxIcons.max >= W.MAX_ICONS_SLIDER && T.SETTINGS.maxIcons.min === 0)
+})
+
+test("the widget counts itself from service, not the serviceReady binding (stale in onServiceChanged)", () => {
+  const widget = require("fs").readFileSync(path.join(__dirname, "..", "BarWidget.qml"), "utf8")
+  const body = widget.match(/function syncCount\(\) \{([\s\S]*?)\n  \}/)[1]
+  assert.ok(!body.includes("serviceReady"), "syncCount must not read serviceReady")
+  assert.ok(body.includes("widgetCopies += 1"))
+  assert.ok(/onServiceChanged: root\.syncCount\(\)/.test(widget))
 })
 
 if (failures) {

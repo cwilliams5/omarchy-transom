@@ -24,11 +24,23 @@ function inLayout(layout) {
 }
 
 // Whether the taskbar is drawn. The bar option `visible` hides it, but only
-// while the widget is on a bar (in Omarchy's layout, or a live copy on
-// another bar): the widget's "Show the taskbar" switch is the way back.
-// Take the widget off the bar and a hidden taskbar comes back by itself.
-function taskbarShown(visibleSetting, widgetOnBar) {
-  return visibleSetting !== false || !widgetOnBar
+// while there's a way back: the widget on a bar with its icon showing (its
+// "Show the taskbar" switch). Take the widget off the bar, or hide its
+// icon, and a hidden taskbar comes back by itself.
+function taskbarShown(visibleSetting, wayBack) {
+  return visibleSetting !== false || !wayBack
+}
+
+// Whether shell.json's plugins list (entries are ids or { id }) names
+// Transom: true or false, or null when the list can't be read.
+function listedInPlugins(plugins) {
+  if (!plugins || typeof plugins === "string" || typeof plugins.length !== "number") return null
+  for (var i = 0; i < plugins.length; i++) {
+    var entry = plugins[i]
+    var id = typeof entry === "string" ? entry : (entry && typeof entry === "object" ? entry.id : "")
+    if (id === PLUGIN_ID) return true
+  }
+  return false
 }
 
 // One line on the taskbar's state, for the dropdown's header and the
@@ -74,6 +86,7 @@ if (typeof module !== "undefined") {
     PLUGIN_ID: PLUGIN_ID,
     inLayout: inLayout,
     taskbarShown: taskbarShown,
+    listedInPlugins: listedInPlugins,
     status: status,
     WINDOWS: WINDOWS,
     COMBINE: COMBINE,

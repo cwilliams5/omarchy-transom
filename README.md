@@ -176,7 +176,8 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 
 | Option | Default | What |
 |---|---|---|
-| `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar widget is on a bar (its switch is the way back). See "Top-bar widget". |
+| `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar icon is on the bar (its switch is the way back). See "Top-bar widget". |
+| `topBarIcon` | `true` | Show the top-bar widget's icon. `false` leaves the widget on the bar taking no room, so Transom keeps running. Never together with a hidden taskbar: hiding the icon shows the taskbar. |
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
 | `iconStyle` | `"color"` | App icons (the tray and quick launch): `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. See "Icon styles". |
 | `windowIconStyle` | `"color"` | Window icons (the taskbar buttons), the same three styles. The focused window's button keeps its color unless `iconStyleOn.activeWindow`. |
@@ -206,6 +207,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
+| Top-bar icon ✓ | The bar option `topBarIcon` (shown once Transom's widget is on Omarchy's bar): brings a hidden icon back |
 | Icons: … | Cycles `iconStyle` (the tray and quick launch): color → gray → theme color |
 | Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
 | Taskbar buttons ✓ | Show or hide the window buttons (`tasks`) |
@@ -233,31 +235,33 @@ as its bottom rail (left out while the taskbar is hidden).
 
 | Click | Does |
 |---|---|
-| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen). Taskbar buttons (on/off): icons only, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
+| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
 | Middle | Show or hide the taskbar |
 
 **Hiding the taskbar** (the bar option `visible`) takes it off every
-screen, and windows get the space back. It only works while the widget is
-on a bar, since the widget's switch is how you get the taskbar back: take
-the widget off the bar while the taskbar is hidden and the taskbar comes
-back by itself. From a terminal or a key binding:
-`omarchy-shell transom show`, `hide` or `toggle`. For example, in your
+screen, and windows get the space back. It only works while the icon is on
+the top bar, since its switch is how you get the taskbar back: take the
+widget off the bar, or hide its icon, and the taskbar comes back by itself. From a terminal or a key binding:
+`omarchy-shell transom show`, `hide` or `toggle` (and `omarchy-shell
+transom widget` says what Transom knows about its widget). For example, in your
 Hyprland config (pick any free keys):
 
 ```lua
 o.bind("SUPER + ALT + T", "Show or hide the taskbar", "omarchy-shell transom toggle")
 ```
 
-**Don't want the icon? Switch it off rather than removing it.** In
-Omarchy's bar settings, Transom's widget has **Show icon**: off, it takes
-no room on the bar, Transom keeps running, and a hidden taskbar still has a
-way back (the switch). Why not remove it: Omarchy runs a plugin that has a
-top-bar widget only while that widget is on a bar, unless the plugin is
-also in the `plugins` list of `~/.config/omarchy/shell.json`.
-`omarchy plugin add --enable` puts it on the bar and not in that list, so
-removing the widget turns Transom off, taskbar and all. (Installs from
-before Transom had a widget are in the list; for those, removing it
-changes nothing.)
+**Don't want the icon? Switch it off rather than removing it:** the
+dropdown's **Top-bar icon** switch (the bar option `topBarIcon`). The
+widget then takes no room on the top bar and Transom keeps running; the
+bottom bar's right-click menu has **Top-bar icon** to bring it back.
+
+Why not remove it: Omarchy runs a plugin that has a top-bar widget only
+while that widget is on a bar, unless the plugin is also in the `plugins`
+list of `~/.config/omarchy/shell.json`. `omarchy plugin add --enable` puts
+it on the bar and not in that list, so removing the widget turns Transom
+off, taskbar and all. The dropdown says so under the switch when that's
+the case on your computer. (Installs from before Transom had a widget are
+in the list; for those, removing it changes nothing.)
 
 **Omarchy's plugin list** (`omarchy plugin list`, and plugin managers built
 on it) calls a plugin with a widget enabled only while the widget is on the

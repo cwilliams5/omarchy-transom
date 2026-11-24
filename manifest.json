@@ -15,22 +15,10 @@
   },
   "barWidget": {
     "displayName": "Transom",
-    "description": "Optional: show or hide the taskbar, and its main settings, from the top bar. The taskbar works without it.",
+    "description": "Optional: show or hide the taskbar, and its settings, from the top bar. The taskbar works without it; hide the icon from its own dropdown rather than removing it (see the README).",
     "category": "System",
     "allowMultiple": false,
-    "defaultSection": "right",
-    "defaults": {
-      "showIcon": true
-    },
-    "schema": [
-      {
-        "key": "showIcon",
-        "type": "boolean",
-        "label": "Show icon",
-        "description": "Off, the widget takes no room on the bar but Transom keeps running. Removing the widget instead can turn Transom off (see the README).",
-        "defaultValue": true
-      }
-    ]
+    "defaultSection": "right"
   },
   "license": "MIT"
 }

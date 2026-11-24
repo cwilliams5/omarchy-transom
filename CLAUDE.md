@@ -31,10 +31,15 @@ In progress, for 0.2.0, in this order:
 3. Release 0.2.0 and a "Plugin verification" request (the maintainer
    approves it first).
 
-Decided 2026-11-23: the widget's "Show icon" switch (Omarchy's bar
-settings) is how to go without the icon. Removing the widget instead turns
-Transom off for installs made with `--enable` (see "Platform facts", the
-bar-widget kind); the README says so.
+Decided 2026-11-23 with Cody: removing the widget turns Transom off for
+installs made with `--enable` (see "Platform facts", the bar-widget kind),
+and nothing Transom may do changes that. So the way to go without the icon
+is Transom's own switch, the bar option `topBarIcon` (dropdown, and the
+bottom bar's menu to bring it back), and the dropdown warns under it when
+removing would turn Transom off here (`Service.iconKeepsTransomOn`, from a
+read-only look at shell.json's plugins list). A first try used a widget
+setting ("Show icon" in `barWidget.schema`) until it turned out Omarchy 4.5
+shows those nowhere.
 
 ## What Transom is
 
@@ -105,7 +110,7 @@ user's call, and the README tells them how.
   - settings file `~/.config/omarchy/transom.json` (until it exists,
     `defaults.json`)
   - IPC target `transom`: `omarchy-shell transom windows | widgets | tray |
-    set <id> '<json>' | show | hide | toggle`
+    set <id> '<json>' | show | hide | toggle | widget`
   - log prefix `transom:`
   - layer-shell namespace `omarchy-bar` (Omarchy's own, on purpose; see the
     rules)
@@ -221,11 +226,12 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 16. **The top-bar widget stays optional, and a hidden taskbar always has a
     way back.** Transom must work the same with no widget anywhere. The bar
     option `visible` only hides the taskbar while the widget is on a bar
-    (`Service.widgetOnBar`: in Omarchy's layout, icon shown or not, or a
-    live copy counting itself); when the widget goes, the taskbar shows and
-    the saved "hidden" is cleared, so re-adding the widget doesn't hide it
-    by surprise. Never at start-up, before the shell has handed over its
-    config.
+    (`Service.widgetOnBar`: in Omarchy's layout, or a live copy counting
+    itself) with its icon showing (`topBarIcon`). When the widget goes, the
+    taskbar shows and the saved "hidden" is cleared, so re-adding the widget
+    doesn't hide it by surprise (never at start-up, before the shell has
+    handed over its config); hiding the icon shows the taskbar in the same
+    save. Transom reads shell.json (the plugins list) but never writes it.
 17. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
     untrusted text reaching Hyprland's Lua. Quote shell arguments with
@@ -312,10 +318,16 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   only clears an entry when the list says enabled, so it can leave a stale
   `plugins[]` entry behind (harmless). Checked in Omarchy 4.5.0-3's source,
   and live on 2026-11-23 for the `plugins[]` case.
-- **A bar widget's "Show icon"** is the widget's own schema setting
-  (`manifest.json` `barWidget.schema`), saved on its `bar.layout` entry;
-  Omarchy's bar settings show it. `omarchy-shell shell setBarWidget <id>
-  showIcon false '{}'` sets it from a terminal.
+- **Omarchy 4.5 has no screen for a widget's own settings**
+  (`barWidget.schema` in a manifest): only third-party settings apps show
+  them, or `omarchy-shell shell setBarWidget <id> <key> <json> '{}'`. So
+  anything users must find goes in Transom's own menus. A widget saves its
+  own settings by assigning `settings` (Omarchy's power widget does), which
+  rewrites shell.json; Transom keeps its settings in transom.json instead.
+- **Inside a property's change handler, a binding that depends on it can
+  still hold its old value.** `BarWidget.syncCount` read `serviceReady` in
+  `onServiceChanged` and never counted the widget; read the property
+  itself there.
 - **Omarchy's bar doesn't claim right or middle clicks on widgets** (only
   its custom-command widget uses them), so the widget can.
 - **Quickshell caches QML.** Saving a file in the plugin folder makes Omarchy
@@ -345,7 +357,7 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 ## Working on it
 
-- **Tests:** `node tests/run.js` (102 tests, about a second, nothing on
+- **Tests:** `node tests/run.js` (105 tests, about a second, nothing on
   screen). They cover the pure `.js` logic only; QML is checked when the
   shell loads it, so watch the log after a restart. Run before every commit.
 - **Try a change live:** commit on a branch in the working copy, then

@@ -175,9 +175,13 @@ Item {
     locked: { default: false },
     // Show the taskbar. False hides it on every screen, from the top-bar
     // widget (BarWidget.qml) or `omarchy-shell transom hide`, but only
-    // while that widget is on a bar: see taskbarShown.
+    // while that widget is on a bar with its icon showing: see taskbarShown.
     visible: { default: true },
-    // App icons: as they are, in grays, or in shades of the theme's color.
+    // Show the top-bar widget's icon. False leaves the widget on Omarchy's
+    // bar taking no room, so it keeps Transom running (see
+    // iconKeepsTransomOn) without being seen. Never together with a hidden
+    // taskbar: one of the two stays as the way back.
+    topBarIcon: { default: true },
     // App icons (the tray and quick launch): as they are, in grays, or in
     // shades of the theme's color. IconStyle.js decides each icon's style.
     iconStyle: { default: "color", choices: ["color", "mono", "themed"] },
@@ -265,13 +269,45 @@ Item {
   // service; each counts itself while it exists. That catches a copy on a
   // bar other than Omarchy's, which the layout check below can't see.
   property int widgetCopies: 0
-  // The widget is on a bar, icon shown or not, so a hidden taskbar has a
-  // way back: the widget's "Show the taskbar" switch.
+  // The widget is on a bar (its icon showing or not).
   readonly property bool widgetOnBar: widgetCopies > 0 || TopBarWidget.inLayout(root.topBarLayout)
+  // The bar option topBarIcon: the widget draws its icon.
+  readonly property bool topBarIconShown: root.settings.topBarIcon !== false
   // Drawn or not: the bar option visible, which only counts while the
-  // widget is on a bar. Take the widget off and a hidden taskbar comes back.
-  readonly property bool taskbarShown: TopBarWidget.taskbarShown(root.settings.visible, root.widgetOnBar)
+  // widget's icon is on a bar, since its "Show the taskbar" switch is the
+  // way back. Take the widget off, or hide its icon, and the taskbar shows.
+  readonly property bool taskbarShown: TopBarWidget.taskbarShown(root.settings.visible, root.widgetOnBar && root.topBarIconShown)
   onTaskbarShownChanged: if (!taskbarShown) root.dismissPopups()
+
+  // Whether removing the widget would turn Transom off: Omarchy runs a
+  // plugin with a widget only while the widget is on a bar, unless its id
+  // is also in shell.json's plugins list (`omarchy plugin add --enable`
+  // doesn't put it there). Read from shell.json, never written; while it
+  // can't be read, assume not (no warning).
+  property var shellPlugins: null
+  readonly property bool iconKeepsTransomOn: root.widgetOnBar && TopBarWidget.listedInPlugins(root.shellPlugins) === false
+  FileView {
+    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try {
+        var config = JSON.parse(text())
+        root.shellPlugins = config && typeof config === "object" ? config.plugins : null
+      } catch (error) {
+        root.shellPlugins = null
+      }
+    }
+    onLoadFailed: root.shellPlugins = null
+  }
+
+  // Shows or hides the widget's icon and saves it. Hiding it shows the
+  // taskbar too, so one of the two is always there to bring the other back.
+  function setTopBarIconShown(on) {
+    if (on) root.updateWidget("bar", { topBarIcon: undefined })
+    else root.updateWidget("bar", { topBarIcon: false, visible: undefined })
+  }
 
   // Once the widget has been seen on a bar and then goes, a saved "hidden"
   // is cleared too, so putting the widget back later doesn't hide the
@@ -306,6 +342,7 @@ Item {
   }
   function hideTaskbar() {
     if (!root.widgetOnBar) return "not hidden: put Transom's widget on the top bar first (its \"Show the taskbar\" switch brings the taskbar back)"
+    if (!root.topBarIconShown) return "not hidden: show Transom's top-bar icon first (bar menu, \"Top-bar icon\"): it's the way back"
     if (root.settings.visible !== false) root.updateWidget("bar", { visible: false })
     return "hidden"
   }
@@ -740,6 +777,20 @@ Item {
     function show(): string { return root.showTaskbar() }
     function hide(): string { return root.hideTaskbar() }
     function toggle(): string { return root.toggleTaskbar() }
+
+    // What the service knows about its top-bar widget.
+    //   omarchy-shell transom widget
+    function widget(): string {
+      return JSON.stringify({
+        onBar: root.widgetOnBar,
+        inTopBarLayout: TopBarWidget.inLayout(root.topBarLayout),
+        liveCopies: root.widgetCopies,
+        iconShown: root.topBarIconShown,
+        taskbarShown: root.taskbarShown,
+        listedInPlugins: TopBarWidget.listedInPlugins(root.shellPlugins),
+        removingTurnsTransomOff: root.iconKeepsTransomOn
+      }, null, 2)
+    }
 
     // Omarchy's bar widgets that can go on this bar, and where each is now.
     //   omarchy-shell transom widgets
