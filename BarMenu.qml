@@ -68,7 +68,9 @@ AnchoredPopup {
   }
 
   MenuCard {
-    contentWidth: Style.space(270)
+    // Wide enough for its longest row, "Click the active window to
+    // minimize", indented (at 270 it was cut off).
+    contentWidth: Style.space(310)
 
     // ------------------------------------------------------- main page
 

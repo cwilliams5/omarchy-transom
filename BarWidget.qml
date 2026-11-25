@@ -210,8 +210,6 @@ Panel {
     var keys = ["shown", "autohide", "withTopBar", "locked", "pointer"]
     if (root.severalScreens) keys.push("screens")
     keys.push("topBarIcon")
-    keys.push("tasks")
-    if (root.tasksOn) keys = keys.concat(["iconsOnly", "activeClick", "combine", "thumbnails", "plainTitles", "windows"])
     keys.push("tray")
     if (root.trayOn) {
       keys.push("overflow")
@@ -219,6 +217,8 @@ Panel {
       keys.push("trayClick")
     }
     keys.push("quicklaunch")
+    keys.push("tasks")
+    if (root.tasksOn) keys = keys.concat(["iconsOnly", "activeClick", "combine", "thumbnails", "plainTitles", "windows"])
     keys.push("appIcons", "windowIcons")
     if (root.windowIconStyle !== "color") keys.push("focusedColor")
     if (root.anyThemed) keys.push("tint")
@@ -465,6 +465,56 @@ Panel {
               Item { width: 1; height: Style.space(4) }
 
               SwitchRow {
+                key: "tray"
+                heading: true
+                label: "System tray"
+                checked: root.trayOn
+                onToggled: root.service.setWidgetEnabled("tray", !root.trayOn)
+              }
+
+              SwitchRow {
+                key: "overflow"
+                visible: root.trayOn
+                indented: true
+                label: "Overflow \"^\""
+                checked: root.tray.overflow === true
+                onToggled: root.change("tray", { overflow: !root.tray.overflow })
+              }
+
+              SliderRow {
+                key: "maxIcons"
+                visible: root.trayOn && root.tray.overflow === true
+                indented: true
+                label: "Icons before \"^\""
+                value: root.pendingMaxIcons >= 0 ? root.pendingMaxIcons : root.tray.maxIcons
+              }
+
+              SwitchRow {
+                key: "trayClick"
+                visible: root.trayOn
+                indented: true
+                label: "Windows-style left click"
+                checked: root.tray.replaceLeftClick === true
+                onToggled: root.change("tray", { replaceLeftClick: !root.tray.replaceLeftClick })
+              }
+
+              Item { width: 1; height: Style.space(4) }
+
+              SwitchRow {
+                key: "quicklaunch"
+                heading: true
+                label: "Quick launch"
+                checked: root.quickLaunchOn
+                onToggled: root.service.setQuickLaunchEnabled(!root.quickLaunchOn)
+              }
+            }
+
+            // ------------------------------------------ right column
+            Column {
+              width: root.columnWidth
+              spacing: Style.space(10)
+
+              SwitchRow {
                 key: "tasks"
                 heading: true
                 label: "Taskbar buttons"
@@ -527,56 +577,6 @@ Panel {
                 options: TopBarWidget.WINDOWS
                 value: root.tasks.windows
                 onPicked: function(value) { root.change("tasks", { windows: value }) }
-              }
-            }
-
-            // ------------------------------------------ right column
-            Column {
-              width: root.columnWidth
-              spacing: Style.space(10)
-
-              SwitchRow {
-                key: "tray"
-                heading: true
-                label: "System tray"
-                checked: root.trayOn
-                onToggled: root.service.setWidgetEnabled("tray", !root.trayOn)
-              }
-
-              SwitchRow {
-                key: "overflow"
-                visible: root.trayOn
-                indented: true
-                label: "Overflow \"^\""
-                checked: root.tray.overflow === true
-                onToggled: root.change("tray", { overflow: !root.tray.overflow })
-              }
-
-              SliderRow {
-                key: "maxIcons"
-                visible: root.trayOn && root.tray.overflow === true
-                indented: true
-                label: "Icons before \"^\""
-                value: root.pendingMaxIcons >= 0 ? root.pendingMaxIcons : root.tray.maxIcons
-              }
-
-              SwitchRow {
-                key: "trayClick"
-                visible: root.trayOn
-                indented: true
-                label: "Windows-style left click"
-                checked: root.tray.replaceLeftClick === true
-                onToggled: root.change("tray", { replaceLeftClick: !root.tray.replaceLeftClick })
-              }
-
-              Item { width: 1; height: Style.space(4) }
-
-              SwitchRow {
-                key: "quicklaunch"
-                heading: true
-                label: "Quick launch"
-                checked: root.quickLaunchOn
-                onToggled: root.service.setQuickLaunchEnabled(!root.quickLaunchOn)
               }
 
               Item { width: 1; height: Style.space(4) }

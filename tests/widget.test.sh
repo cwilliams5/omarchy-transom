@@ -204,7 +204,7 @@ check "Show: shown and saved" "$(st .shown),$(file .bar.visible)" "true,null"
 
 check "the widget loads and finds the service (through Registry.js)" "$(st .ready)" "true"
 check "...and counts itself with it (the widget never did, 2026-11-23)" "$(st .copies)" "1"
-check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide withTopBar locked pointer topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
+check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide withTopBar locked pointer topBarIcon tray overflow maxIcons trayClick quicklaunch tasks iconsOnly activeClick combine thumbnails plainTitles windows appIcons windowIcons menu file"
 check "the first key lands on the first row" "$(wt move 0 1)" "shown"
 check "down moves to the next" "$(wt move 0 1)" "autohide"
 
@@ -367,8 +367,8 @@ wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; sleep
 check "...a queued click is dropped when the workspace changed meanwhile" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
 wt sdReset "sleep 0.5" 5000 300 >/dev/null
 wt sdWindows "$(windows "$(win 0xa 2 2 '[]' 1)" "$(win 0xb 2 2 '[]' 0)" "$(win 0xc 3 3 '[]' 2)")" >/dev/null
-wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; wt sdClick >/dev/null; sleep 1.2
-check "...a click on another workspace meanwhile runs there once the first is done" "$(sdst .minimizes)" '["0xa,0xb","0xc"]'
+wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; wt sdClick >/dev/null; sleep 1.2
+check "...a click on another workspace meanwhile (one was queued here) runs there once the first is done" "$(sdst .minimizes)" '["0xa,0xb","0xc"]'
 # The chain's child stands in for a hung hyprctl: the deadline must stop it
 # too, not only the shell running the chain.
 wt sdReset "sleep 5.4321; true" 800 300 >/dev/null; wt sdWindows "$open2" >/dev/null
