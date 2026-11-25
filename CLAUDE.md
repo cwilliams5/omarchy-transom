@@ -8,7 +8,7 @@ palette). The reasons below matter as much as the rules.
 This file is public with the repo: no personal details, nothing about the
 maintainer's work setup.
 
-## Status (2026-11-23)
+## Status (2026-11-24)
 
 Released and listed. 0.1.0 (2026-11-19) is the latest release; listed on
 the Omarchy plugin marketplace (omarchyplugins.com, id
@@ -16,28 +16,26 @@ the Omarchy plugin marketplace (omarchyplugins.com, id
 approved-and-verified at `eb20a13`). Every commit after that shows as
 "Update unverified" on the listing until a newer one is verified.
 
-Since 0.1.0: windows tagged `skip-taskbar` get no button unless minimized
-(`cd5ee47`), and pin events re-read window data (`c7db3fe`).
-
-0.2.0 is on main but not released (the version still says 0.1.0). Main
-already reaches existing users through `omarchy plugin update`, which is
-why unreleased work belongs on a branch from now on (strict review R1-M4).
-What 0.2.0 adds:
+0.2.0 is being released from branch `review-r1` (main is still `f5c2fbf`,
+the first cut of the widget, which `omarchy plugin update` already brought
+to existing users under the 0.1.0 label: why unreleased work stays on a
+branch now, rule 21). What 0.2.0 adds since `eb20a13`:
 - the optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
-  and a two-column dropdown with nearly every bar-menu setting;
+  and a two-column dropdown with nearly every bar-menu setting; the bar
+  menu's "Top-bar icon" brings it back, even after it was dragged off;
 - window icons styled apart from the tray's (`windowIconStyle`);
-- the first strict review's fixes (`docs/PLAN.md`, R1), with
-  `tests/widget.test.sh` (the real widget and service, offscreen),
-  `tests/scripts.test.sh` and the mutation check (`tests/mutate.js`).
+- clicking the active window minimizes it (`activeClick`, default now
+  "minimize"); the bar's clicks keep the pointer still (rule 17,
+  `pointerToWindow`); `hideWithTopBar` (off: Transom as the only bar);
+  show desktop's quick double-click; the tray's own-process-first guess;
+- two strict-review rounds' fixes (`docs/PLAN.md`, R1 and R2), with
+  `tests/widget.test.sh`, `tests/scripts.test.sh` and the mutation check
+  (`tests/mutate.js`).
 
-Next (`docs/PLAN.md`): two strict-review rounds are done (R1 at f5c2fbf,
-R2 at c61acf3; R2 found no critical or high) and their findings are fixed.
-Added since, at Cody's request: the bar menu puts a dragged-off widget
-back (rule 1's exception), click the active window to minimize (default
-on), and the bar's clicks keep the pointer where it is (rule 17). All on
-branch `review-r1`, unreleased. Open before release: a few low items Cody
-is deciding on (see the plan), then release 0.2.0 and the marketplace's
-"Plugin verification" request (the maintainer approves both first).
+Release order (the maintainer approves each public step): the review of
+the delta since `eb20a13` and the README pictures, then merge to main,
+version 0.2.0, tag and GitHub release, then, last, after the maintainer
+has tried it, the marketplace's "Plugin verification" request.
 
 Decided 2026-11-23: removing the widget turns Transom off for installs
 made with `--enable` (see "Platform facts", the bar-widget kind), and
@@ -471,14 +469,14 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 ## Working on it
 
-- **Tests:** `tests/run` before every commit (about 20 s, nothing on
+- **Tests:** `tests/run` before every commit (about 40 s, nothing on
   screen, nothing written outside temp folders):
-  - `node tests/run.js` (123 tests): every pure `.js` file but `CaptureCache.js`
+  - `node tests/run.js` (125 tests): every pure `.js` file but `CaptureCache.js`
     and `Registry.js` (`.pragma library`, which node can't load).
-  - `tests/scripts.test.sh` (12 checks): `minimize` and `tray-window`
+  - `tests/scripts.test.sh` (16 checks): `minimize` and `tray-window`
     against stand-in `hyprctl` and `busctl` that log and answer from
     fixtures.
-  - `tests/widget.test.sh` (53 checks): the real `BarWidget.qml` and
+  - `tests/widget.test.sh` (72 checks): the real `BarWidget.qml` and
     `Service.qml` in a throwaway Quickshell on Qt's offscreen platform,
     with HOME and the XDG folders in a temp folder, no Hyprland connection,
     `BarWindow.qml` stubbed (layer-shell windows can't exist offscreen) and
@@ -489,7 +487,7 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     `toplevels` and `workspaceId` are settable for this), its minimize
     chain a `sleep`.
   - **Mutation check:** `node tests/mutate.js` (`--all` adds the widget
-    test, about 15 min) plants each of the 47 entries in
+    test, about an hour) plants each of the 79 entries in
     `tests/mutations.json` on a scratch copy and expects a test to fail.
     It runs the unmutated suite first and stops if that fails. Add an
     entry for every fix.
