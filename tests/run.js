@@ -1035,6 +1035,22 @@ test("a click on the active window minimizes it, Windows-style, unless the point
   assert.ok(!M.activeClickMinimizes("nothing", t - 5000, t), "activeClick: nothing")
 })
 
+test("bar clicks keep the pointer where it is, as Latch does: off for exactly those steps, then the user's value back", () => {
+  const steps = ['hl.dsp.focus({ window = "address:0x1" })', 'hl.dsp.window.alter_zorder({ mode = "top", window = "address:0x1" })']
+  const kept = M.dispatchChunk(steps, true)
+  const save = kept.indexOf('local w = hl.get_config("cursor.no_warps")')
+  const off = kept.indexOf("no_warps = true, warp_on_change_workspace = 0")
+  const first = kept.indexOf(steps[0])
+  const last = kept.indexOf(steps[1])
+  const back = kept.indexOf("no_warps = w, warp_on_change_workspace = c")
+  assert.ok(save >= 0 && save < off && off < first && first < last && last < back, "save, off, the steps, then restore")
+  assert.strictEqual((kept.match(/pcall\(function\(\) hl\.dispatch\(/g) || []).length, 2, "each step on its own: one failing can't skip the restore")
+  const moved = M.dispatchChunk(steps, false)
+  assert.ok(!moved.includes("no_warps"), "pointerToWindow on: Hyprland's own behaviour")
+  assert.ok(moved.includes(steps[0]) && moved.includes(steps[1]))
+  assert.strictEqual(M.dispatchChunk([], true).includes("hl.dispatch"), false)
+})
+
 if (failures) {
   console.log("\n" + failures + " failed")
   process.exit(1)

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Minimize a window to Transom's taskbar.
-# Usage: minimize [window-address]   (the active window when given none)
+# Usage: minimize [--keep-pointer] [window-address]   (the active window when given none)
 #
 # A copy of Omarchy's omarchy-hyprland-window-minimize without its
 # "floating workspaces only" check: Omarchy's dock appears only on floating
@@ -9,6 +9,16 @@
 # the window on special:minimized and tags it omarchy-minimized-from-<id>, so
 # the taskbar of the workspace it came from can show it and bring it back.
 # Super+M runs this, through the binding in the README (any key works).
+
+# --keep-pointer (Transom's own clicks, unless its pointerToWindow is on):
+# the move and the focus run as one Lua chunk inside Hyprland with its
+# pointer moves off just for them, so the pointer stays where the user
+# clicked. Without it (Super+M) Hyprland's own settings apply.
+KEEP_POINTER=0
+if [[ ${1:-} == --keep-pointer ]]; then
+  KEEP_POINTER=1
+  shift
+fi
 
 ACTIVE=$(hyprctl activewindow -j | jq -r '.address // empty')
 if [[ -n ${1:-} ]]; then
@@ -39,12 +49,22 @@ remember_minimized_from() {
 # Without its tag a minimized window has no home workspace on the taskbar,
 # so it isn't moved unless the tag landed.
 remember_minimized_from "$ADDRESS" "$WORKSPACE" || exit 1
-hyprctl dispatch "hl.dsp.window.move({ workspace = \"special:minimized\", follow = false, window = \"address:$ADDRESS\" })" >/dev/null
 
+move="hl.dsp.window.move({ workspace = \"special:minimized\", follow = false, window = \"address:$ADDRESS\" })"
 # Minimizing the focused window: focus would otherwise stay with it, and the
 # next window opened would join it on the hidden workspace. Any other window
 # (from a taskbar menu, or show desktop's chain): leave the screen where it
 # is (strict review R1-M6).
-if [[ $ADDRESS == "$ACTIVE" ]]; then
-  hyprctl dispatch "hl.dsp.focus({ workspace = \"$WORKSPACE\" })" >/dev/null
+focus=""
+[[ $ADDRESS == "$ACTIVE" ]] && focus="hl.dsp.focus({ workspace = \"$WORKSPACE\" })"
+
+if (( KEEP_POINTER )); then
+  # The same chunk as Transom's TasksModel.dispatchChunk.
+  steps="pcall(function() hl.dispatch($move) end)"
+  [[ -n $focus ]] && steps+="; pcall(function() hl.dispatch($focus) end)"
+  hyprctl repl "local w = hl.get_config(\"cursor.no_warps\"); local c = hl.get_config(\"cursor.warp_on_change_workspace\"); hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }); $steps; hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })" >/dev/null
+else
+  hyprctl dispatch "$move" >/dev/null
+  [[ -n $focus ]] && hyprctl dispatch "$focus" >/dev/null
 fi
+exit 0

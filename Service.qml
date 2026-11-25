@@ -154,6 +154,10 @@ Item {
     maximizedRaiseWorkaround: { default: true },
     // "Lock the taskbar": nothing on the bar can be dragged.
     locked: { default: false },
+    // Hyprland moves the pointer to a window focused by command. Off (the
+    // default, as with Windows' taskbar), the bar's own clicks leave the
+    // pointer where it is; nothing else changes (TasksModel.dispatchChunk).
+    pointerToWindow: { default: false },
     // Show the taskbar. False hides it on every screen, from the top-bar
     // widget (BarWidget.qml) or `omarchy-shell transom hide`, but only
     // while that widget is on a bar with its icon showing: see taskbarShown.
@@ -683,20 +687,25 @@ Item {
   // ------------------------------------------------- windows and apps
 
   // A dispatch's window. Only ever a Hyprland address (0x and hex): nothing
-  // else may reach Hyprland's Lua (rule 17; strict review R1-L4).
+  // else may reach Hyprland's Lua (rule 18; strict review R1-L4).
   function target(address) {
     var value = TasksModel.normalizeAddress(address)
     if (!/^0x[0-9a-fA-F]+$/.test(value)) value = "0x0"
     return "window = \"address:" + value + "\""
   }
 
-  // Runs Hyprland dispatches in order, then any `after` ones 0.4s later.
-  // Each one is logged to the shell log (see README, Developing).
+  // The bar's clicks leave the pointer where it is (bar option
+  // pointerToWindow off).
+  readonly property bool keepPointer: root.settings.pointerToWindow !== true
+
+  // Runs Hyprland dispatches in order, as one Lua chunk inside Hyprland
+  // (TasksModel.dispatchChunk: nothing interleaves, and the pointer stays
+  // put unless pointerToWindow), then any `after` ones 0.4s later. Each is
+  // logged to the shell log (see README, Developing).
   function dispatch(steps, after) {
     console.log("transom: " + steps.concat(after || []).join(" ; "))
-    var run = function(step) { return "hyprctl dispatch " + Util.shellQuote(step) }
-    var command = steps.map(run).join(" && ")
-    if (after && after.length > 0) command += "; sleep 0.4; " + after.map(run).join("; ")
+    var command = "hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(steps, root.keepPointer))
+    if (after && after.length > 0) command += "; sleep 0.4; hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(after, false))
     Util.execDetached(command)
   }
 
@@ -761,10 +770,12 @@ Item {
     ])
   }
 
-  // Minimizes several windows, one after another (show desktop).
+  // Minimizes windows, one after another (a button's click or menu, show
+  // desktop). --keep-pointer: the script's focus leaves the pointer where it
+  // is, as the bar's other clicks do.
   function minimizeWindows(addresses) {
     if (!addresses || addresses.length === 0) return
-    var script = Util.shellQuote(root.pluginDir + "/minimize")
+    var script = Util.shellQuote(root.pluginDir + "/minimize") + (root.keepPointer ? " --keep-pointer" : "")
     console.log("transom: minimize " + addresses.join(" "))
     Util.execDetached(addresses.map(function(address) { return script + " " + Util.shellQuote(address) }).join("; "))
   }
@@ -783,9 +794,7 @@ Item {
       after.push("hl.dsp.window.set_prop({ prop = \"no_anim\", value = \"unset\", " + t + " })")
     })
     steps.push("hl.dsp.focus({ " + root.target(addresses[addresses.length - 1]) + " })")
-    console.log("transom: restore " + addresses.join(" "))
-    var run = function(step) { return "hyprctl dispatch " + Util.shellQuote(step) }
-    Util.execDetached(steps.map(run).join("; ") + "; sleep 0.4; " + after.map(run).join("; "))
+    root.dispatch(steps, after)
   }
 
   // Starts an app from its desktop entry, the way Omarchy's launcher does.

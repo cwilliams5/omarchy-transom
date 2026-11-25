@@ -263,11 +263,22 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     On an install Omarchy lists only on the bar, removing the widget stops
     Transom outright, so it comes back as it was. Transom reads shell.json
     (the plugins list) but never writes it.
-17. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
+17. **The bar's clicks leave the pointer alone, without touching the user's
+    setting.** Hyprland moves the pointer to a window focused by command.
+    Unless `pointerToWindow` is on, every action goes to Hyprland as one Lua
+    chunk (`hyprctl repl`, `TasksModel.dispatchChunk`) that saves
+    `cursor.no_warps` and `cursor.warp_on_change_workspace`, turns the
+    pointer moves off, runs the steps (each in its own `pcall`), and puts
+    the values back. Hyprland runs a chunk start to finish, so nothing else
+    sees the change (Latch does the same). `minimize --keep-pointer` does it
+    for the bar's minimizes; Super+M (no flag) keeps Hyprland's behaviour.
+    Verified in a nested Hyprland, 2026-11-24. One chunk per action also
+    means its steps can't interleave with another action's.
+18. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
     untrusted text reaching Hyprland's Lua. `Service.target()` accepts only
     `0x` + hex. Quote shell arguments with `Util.shellQuote`.
-18. **Never save over a settings file Transom couldn't fully read.**
+19. **Never save over a settings file Transom couldn't fully read.**
     `Settings.readLayout` reports invalid JSON, a section that isn't a
     list, entries without an id; while any is open (`settingsError`)
     `saveLayout` refuses, the bar menu and the dropdown say so, and one
@@ -282,7 +293,7 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     on the defaults minus anything that closes or launches
     (`Settings.safeLayout`, R2-L4). Why: a typo made the next click replace
     the whole file with the defaults (R1-H4).
-19. **Helpers have deadlines, and a late or failed answer does nothing.**
+20. **Helpers have deadlines, and a late or failed answer does nothing.**
     `tray-window` runs under `timeout 3`, each `busctl --timeout=1`, with
     `--` before app-chosen bus names; any answer it can't vouch for says
     `failed`. A tray click goes to the app at once, always; the step-in
@@ -290,7 +301,7 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     1.5 s, and neither may have failed, or it does nothing (R1-M3, R2-M2,
     R2-L6: a hung app once made a click land a minute late, then launch a
     second copy).
-20. **Unreleased work stays on a branch.** `omarchy plugin update` pulls
+21. **Unreleased work stays on a branch.** `omarchy plugin update` pulls
     main, so main is what every user runs, marketplace verification or not
     (R1-M4).
 
@@ -308,7 +319,7 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
   (lists of `{ id, enabled?, ...settings }`) and a `bar` object (bar-wide
   options, `barSettingsSpec`). `Settings.readLayout` reads the file and
   reports anything it can't use; while it has a problem nothing is saved
-  (rule 18). `Settings.parse` checks each entry against its widget's spec;
+  (rule 19). `Settings.parse` checks each entry against its widget's spec;
   bad values fall back to defaults and are logged. Menus save through
   `updateWidget` → `saveLayout`, which writes the whole file; `layoutText`
   stops our own write coming back through the file watcher as a second
@@ -395,6 +406,11 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   plugin's widget hosted on Transom's bar gets Transom's scoped shell, so
   `serviceFor` finds nothing for it (only widgets with a fallback like
   Locus's `Registry.js` work).
+- **`hyprctl repl '<lua>'` runs a Lua chunk inside Hyprland**, start to
+  finish, before anything else is handled (`hl.dispatch(hl.dsp…)`,
+  `hl.get_config`, `hl.config`). Focusing a window by command moves the
+  pointer to its center unless `cursor.no_warps`; switching workspace
+  moves it too while `cursor.warp_on_change_workspace` (Omarchy sets 1).
 - **`hyprctl` exits 0 even when Hyprland refuses**: read the reply.
   `hyprctl dispatch` answers `ok` (even for an address that no longer
   exists); `hyprctl getprop` answers `window not found` with exit 0.

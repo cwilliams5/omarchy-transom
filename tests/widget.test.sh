@@ -175,7 +175,7 @@ check "Show: shown and saved" "$(st .shown),$(file .bar.visible)" "true,null"
 
 check "the widget loads and finds the service (through Registry.js)" "$(st .ready)" "true"
 check "...and counts itself with it (the widget never did, 2026-11-23)" "$(st .copies)" "1"
-check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide locked topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
+check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide locked pointer topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
 check "the first key lands on the first row" "$(wt move 0 1)" "shown"
 check "down moves to the next" "$(wt move 0 1)" "autohide"
 
@@ -293,12 +293,18 @@ check "no QML errors" "$errors" ""
 # Omarchy's own Style reads a few Hyprland options (hyprctl -j getoption):
 # read-only, and not Transom's. Anything else is a failure.
 check "nothing else ran on the desktop" "$(grep -v -e '^hyprctl -j getoption ' -e '^notify-send ' "$dir/calls.txt" 2>/dev/null)" ""
-# The real dispatch path (Service.qml), through the stand-in hyprctl.
+# The real dispatch path (Service.qml), through the stand-in hyprctl, with
+# a good settings file again (the checks above leave it broken).
+printf '{ "center": [{ "id": "tasks" }], "right": [{ "id": "tray" }] }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
 : > "$dir/calls.txt"
 wt focus '0x1" }) ; hl.exec("x' >/dev/null; wt restore 0xabc -1 >/dev/null; wt restore 0xabc 2 >/dev/null; sleep 0.8
-check "a target that isn't an address never reaches Hyprland's Lua (R1-L4)" "$(grep -c 'hl.exec' "$dir/calls.txt"),$(grep -c 'address:0x0' "$dir/calls.txt")" "0,2"
+check "a target that isn't an address never reaches Hyprland's Lua (R1-L4)" "$(grep -c 'hl.exec' "$dir/calls.txt"),$(grep -c 'address:0x0' "$dir/calls.txt")" "0,1"
+check "...an action runs as one chunk, the pointer kept where it is by default" "$(grep -c '^hyprctl repl .*no_warps = true.*address:0x0.*no_warps = w' "$dir/calls.txt")" "1"
 check "a restore to a workspace that isn't one does nothing; a real one dispatches there" \
   "$(grep -c 'workspace = "-1"' "$dir/calls.txt"),$(grep -c 'workspace = "2"' "$dir/calls.txt")" "0,1"
+qs ipc -p "$dir/cfg" call transom set bar '{"pointerToWindow": true}' >/dev/null; sleep 0.3; : > "$dir/calls.txt"
+wt focus 0xabc >/dev/null; sleep 0.4
+check "Move pointer to window on: Hyprland's own behaviour" "$(grep -c 'address:0xabc' "$dir/calls.txt"),$(grep -c 'no_warps' "$dir/calls.txt")" "1,0"
 
 # The widget dragged off the top bar: the bar menu's "Top-bar icon" puts it
 # back, through Omarchy's own command, and only when it isn't on a bar.

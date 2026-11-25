@@ -207,7 +207,7 @@ Panel {
   // left column, the right column, the buttons. Rows hidden right now
   // (a section switched off) are left out.
   readonly property var navKeys: {
-    var keys = ["shown", "autohide", "locked"]
+    var keys = ["shown", "autohide", "locked", "pointer"]
     if (root.severalScreens) keys.push("screens")
     keys.push("topBarIcon")
     keys.push("tasks")
@@ -409,6 +409,14 @@ Panel {
                 label: "Lock the taskbar"
                 checked: root.locked
                 onToggled: root.change("bar", { locked: !root.locked })
+              }
+
+              // Off, as on Windows: the bar's clicks leave the pointer on the bar.
+              SwitchRow {
+                key: "pointer"
+                label: "Move pointer to window"
+                checked: root.barSettings.pointerToWindow === true
+                onToggled: root.change("bar", { pointerToWindow: root.barSettings.pointerToWindow === true ? undefined : true })
               }
 
               // Windows' "Show taskbar on all displays", once there's more

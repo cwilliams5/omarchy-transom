@@ -123,6 +123,23 @@ function activeClickMinimizes(setting, activeSince, barEnteredAt) {
   return !(activeSince > 0 && barEnteredAt > 0 && gap >= 0 && gap < APPROACH_MS)
 }
 
+// One Lua chunk for `hyprctl repl`: the steps (Hyprland dispatcher
+// expressions) run in order inside Hyprland, each on its own, so one that
+// fails stops neither the rest nor the clean-up. keepPointer: Hyprland's
+// pointer moves are off for exactly these steps (cursor.no_warps on,
+// cursor.warp_on_change_workspace 0, then the user's values back), the way
+// Latch does it. Hyprland runs the chunk start to finish, so nothing else
+// can focus a window while they're off: the user's setting never visibly
+// changes (verified in a nested Hyprland, 2026-11-24).
+function dispatchChunk(steps, keepPointer) {
+  var body = (steps || []).map(function(step) { return "pcall(function() hl.dispatch(" + step + ") end)" }).join("; ")
+  if (!keepPointer) return body
+  return "local w = hl.get_config(\"cursor.no_warps\"); local c = hl.get_config(\"cursor.warp_on_change_workspace\"); "
+    + "hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }); "
+    + body + "; "
+    + "hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })"
+}
+
 // Whether a window's last snapshot shows it maximized: Hyprland's
 // fullscreen mode 1 (2 is real fullscreen). Only those need the stacking
 // workaround (CLAUDE.md rule 10).
@@ -397,6 +414,7 @@ if (typeof module !== "undefined") {
     startsRefresh: startsRefresh,
     hiddenOrGrouped: hiddenOrGrouped,
     isMaximizedIpc: isMaximizedIpc,
+    dispatchChunk: dispatchChunk,
     APPROACH_MS: APPROACH_MS,
     activeClickMinimizes: activeClickMinimizes,
     restorable: restorable,

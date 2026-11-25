@@ -17,6 +17,8 @@ cat > "$dir/bin/hyprctl" <<EOF
 case "\$1" in
   activewindow) cat "$dir/active.json" ;;
   clients) cat "$dir/clients.json" ;;
+  repl)
+    echo "repl \$2" >> "$dir/dispatches.txt"; echo ok ;;
   dispatch)
     echo "\$2" >> "$dir/dispatches.txt"
     if [ -n "\${DISPATCH_FAILS:-}" ] && [[ "\$2" == *"\$DISPATCH_FAILS"* ]]; then echo "error: refused"; else echo ok; fi ;;
@@ -48,6 +50,12 @@ echo '[{"address":"0xa1","workspace":{"id":2,"name":"2"},"tags":[]},{"address":"
 "$repo/minimize"
 check "minimize (the active window): tagged, moved, and focus stays on its workspace" \
   "$(grep -c 'omarchy-minimized-from-2' "$dir/dispatches.txt"),$(grep -c 'special:minimized' "$dir/dispatches.txt"),$(grep -c 'hl.dsp.focus({ workspace = "2" })' "$dir/dispatches.txt")" "1,1,1"
+
+: > "$dir/dispatches.txt"
+"$repo/minimize" --keep-pointer
+check "--keep-pointer: the move and the focus run as one chunk with the pointer's moves off, then back" \
+  "$(grep -c '^repl ' "$dir/dispatches.txt"),$(grep '^repl ' "$dir/dispatches.txt" | grep -c 'no_warps = true.*special:minimized.*hl.dsp.focus({ workspace = "2" }).*no_warps = w')" "1,1"
+check "...and nothing went through a plain dispatch but the tag" "$(grep -v -c -e '^repl ' -e 'omarchy-minimized-from' "$dir/dispatches.txt")" "0"
 
 : > "$dir/dispatches.txt"
 "$repo/minimize" 0xb2

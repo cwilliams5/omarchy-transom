@@ -184,6 +184,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar icon is on the bar (its switch is the way back). See "Top-bar widget". |
 | `topBarIcon` | `true` | Show the top-bar widget's icon. `false` leaves the widget on the bar taking no room, so Transom keeps running. Never together with a hidden taskbar: hiding the icon shows the taskbar. |
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
+| `pointerToWindow` | `false` | Whether the bar's clicks move the pointer to the window they bring forward (Hyprland's habit). Off, as on Windows: the pointer stays on the bar. Only the bar's own clicks: your Hyprland setting (`cursor:no_warps`) is switched for that one action and put back, so keyboard focus and everything else behave as before. |
 | `iconStyle` | `"color"` | App icons (the tray and quick launch): `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. See "Icon styles". |
 | `windowIconStyle` | `"color"` | Window icons (the taskbar buttons), the same three styles. The focused window's button keeps its color unless `iconStyleOn.activeWindow`. |
 | `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
@@ -212,6 +213,7 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
 | Automatically hide the taskbar ✓ | The bar option `autohide` |
+| Move the pointer to the window ✓ | The bar option `pointerToWindow` |
 | Top-bar icon ✓ | The bar option `topBarIcon`: brings a hidden icon back, and puts the widget back on Omarchy's bar if it was dragged off |
 | Icons: … | Cycles `iconStyle` (the tray and quick launch): color → gray → theme color |
 | Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
@@ -247,7 +249,7 @@ as its bottom rail (left out while the taskbar is hidden).
 
 | Click | Does |
 |---|---|
-| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, click the active window to minimize, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
+| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, move the pointer to the window, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, click the active window to minimize, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
 | Middle | Show or hide the taskbar |
 
 **Hiding the taskbar** (the bar option `visible`) takes it off every

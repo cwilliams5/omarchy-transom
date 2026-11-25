@@ -114,6 +114,16 @@ AnchoredPopup {
       }
     }
 
+    // Whether the bar's clicks move the pointer to the window (Hyprland's
+    // habit); off, as on Windows, the pointer stays on the bar.
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Move the pointer to the window"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.settings.pointerToWindow === true
+      onTriggered: menu.change("bar", { pointerToWindow: checked ? undefined : true })
+    }
+
     // Windows' wording again: hidden until the pointer reaches the edge.
     MenuItemRow {
       visible: menu.page === "main"

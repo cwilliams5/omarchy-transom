@@ -266,9 +266,7 @@ Item {
   }
 
   function minimizeWindow(entry) {
-    if (!taskbar.bar) return
-    console.log("transom: minimize " + entry.address)
-    Util.execDetached(Util.shellQuote(taskbar.bar.pluginDir + "/minimize") + " " + Util.shellQuote(entry.address))
+    if (taskbar.bar) taskbar.bar.minimizeWindows([entry.address])
   }
 
   function closeWindow(entry) {

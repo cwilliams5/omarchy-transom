@@ -22,6 +22,16 @@ then release 0.2.0 through the ship-update skill.
   (`TasksModel.activeClickMinimizes`, the dropdown toggle; two mutations).
   The click itself (Tasks.qml) and the timing on a real desktop: by Cody.
 
+- [x] **The bar's clicks leave the pointer where it is** (Cody, 2026-11-24):
+  Hyprland moves the pointer to a window focused by command, so each
+  taskbar click threw it into the window. New bar option `pointerToWindow`
+  (off, as on Windows; a row in both menus). Every action now goes to
+  Hyprland as one Lua chunk that turns the pointer moves off and puts the
+  user's values back (CLAUDE.md rule 17, Latch's approach), and `minimize
+  --keep-pointer` does it for the bar's minimizes. Verified in a nested
+  Hyprland; tested (the chunk, the script, the dispatch path; three
+  mutations).
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with

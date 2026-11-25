@@ -453,5 +453,26 @@
     "find": "  activeClick: { default: \"minimize\",",
     "replace": "  activeClick: { default: \"nothing\",",
     "why": "the Windows default Cody asked for"
+  },
+  {
+    "name": "pointer-not-restored",
+    "file": "TasksModel.js",
+    "find": "    + body + \"; \"\n    + \"hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })\"",
+    "replace": "    + body",
+    "why": "the user's pointer setting stays switched off after a click"
+  },
+  {
+    "name": "pointer-moves-by-default",
+    "file": "Service.qml",
+    "find": "  readonly property bool keepPointer: root.settings.pointerToWindow !== true",
+    "replace": "  readonly property bool keepPointer: root.settings.pointerToWindow === true",
+    "why": "clicks move the pointer although the option is off"
+  },
+  {
+    "name": "minimize-moves-pointer",
+    "file": "minimize",
+    "find": "if (( KEEP_POINTER )); then",
+    "replace": "if false; then",
+    "why": "minimizing from the bar moves the pointer"
   }
 ]
