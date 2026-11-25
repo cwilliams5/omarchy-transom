@@ -31,9 +31,13 @@ What 0.2.0 adds:
   `tests/scripts.test.sh` and the mutation check (`tests/mutate.js`).
 
 Next (`docs/PLAN.md`): two strict-review rounds are done (R1 at f5c2fbf,
-R2 at c61acf3); R2 found no critical or high, and its findings are fixed.
-Then release 0.2.0 and the marketplace's "Plugin verification" request
-(the maintainer approves both first).
+R2 at c61acf3; R2 found no critical or high) and their findings are fixed.
+Added since, at Cody's request: the bar menu puts a dragged-off widget
+back (rule 1's exception), click the active window to minimize (default
+on), and the bar's clicks keep the pointer where it is (rule 17). All on
+branch `review-r1`, unreleased. Open before release: a few low items Cody
+is deciding on (see the plan), then release 0.2.0 and the marketplace's
+"Plugin verification" request (the maintainer approves both first).
 
 Decided 2026-11-23: removing the widget turns Transom off for installs
 made with `--enable` (see "Platform facts", the bar-widget kind), and
