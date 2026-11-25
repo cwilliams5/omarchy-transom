@@ -12,8 +12,10 @@
 # from a child); window is the one a click should bring forward, or null:
 # never a Chromium web app's window (Chrome and its web apps are one
 # process, but each web app is its own app with its own taskbar button),
-# preferring a window whose class contains the icon's name ("chrome" finds
-# google-chrome), then the most recently focused;
+# preferring the process's own windows (a child's only when it has none: an
+# app that starts other apps mustn't bring those forward), then a window
+# whose class contains the icon's name ("chrome" finds google-chrome), then
+# the most recently focused;
 # focused is whichever of them has focus right now, or null; minimizedFrom
 # is the workspace a minimized window left (its omarchy-minimized-from tag). The tray
 # compares two of these, before and after a click, to see whether the app
@@ -75,7 +77,8 @@ for item in $items; do
     | sort_by(.focusHistoryID) as $mine
     | def webapp: (.class // "") | test("^(chrome|chromium|brave|msedge|vivaldi)-.*__"; "i");
       def named: $name != "" and ((.class // "") | ascii_downcase | contains($name | ascii_downcase));
-      ($mine | map(select(webapp | not)) | sort_by([(if named then 0 else 1 end), .focusHistoryID]) | .[0]) as $w
+      def own: .pid == $owner;
+      ($mine | map(select(webapp | not)) | sort_by([(if own then 0 else 1 end), (if named then 0 else 1 end), .focusHistoryID]) | .[0]) as $w
     | {pid: $owner, menuOnly: $menuOnly,
        window: ($w.address // null),
        minimized: (($w.workspace.name // "") == "special:minimized"),

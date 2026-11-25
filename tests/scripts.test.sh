@@ -86,4 +86,14 @@ check "the app's D-Bus call failing: \"failed\", never a plain \"nothing\" (R2-M
 check "no icon id: \"failed\"" "$("$repo/tray-window" "" "" | jq -c .failed)" "true"
 check "...and the answer for a found app has no failure flag" "$(jq -c .failed <<<"$out")" "null"
 
+# The icon's process 4242 started 5000, another app. ps answers from a
+# fixture so the process tree is the test's.
+printf '#!/bin/sh\nprintf "4242 1\\n5000 4242\\n"\n' > "$dir/bin/ps"; chmod +x "$dir/bin/ps"
+echo '{"address":"0xe5"}' > "$dir/active.json"
+echo '[{"address":"0xd4","pid":4242,"class":"discord","workspace":{"id":1,"name":"1"},"focusHistoryID":1,"tags":[]},{"address":"0xe5","pid":5000,"class":"other-app","workspace":{"id":1,"name":"1"},"focusHistoryID":0,"tags":[]}]' > "$dir/clients.json"
+out=$("$repo/tray-window" discord tray)
+check "the icon's own window first, though a child process's was focused later" "$(jq -c '{window, windows, focused}' <<<"$out")" '{"window":"0xd4","windows":["0xe5","0xd4"],"focused":"0xe5"}'
+echo '[{"address":"0xe5","pid":5000,"class":"steamwebhelper","workspace":{"id":1,"name":"1"},"focusHistoryID":0,"tags":[]}]' > "$dir/clients.json"
+check "...a child's window when the process has none of its own (Steam)" "$("$repo/tray-window" discord tray | jq -r .window)" "0xe5"
+
 exit $fail

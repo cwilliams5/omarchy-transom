@@ -50,6 +50,16 @@ then release 0.2.0 through the ship-update skill.
   Tested on fake windows in widget.test.sh (six mutations). The real
   chain's timing: by Cody.
 
+- [x] **Tray: the app's own window first** (Cody asked 2026-11-24 whether
+  the process-family guess had a better alternative): a Windows-style
+  left click the app ignores brought forward the most recent window of the
+  icon's process or any child process, so an app that starts other apps
+  could bring one of those forward. Now the process's own windows come
+  first, a child's only when it has none (Steam), then the name match and
+  recency as before. Matching by desktop entry was weighed and left out:
+  tray icon ids are app-chosen and often match none. Tested (scripts.test.sh,
+  two mutations).
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with

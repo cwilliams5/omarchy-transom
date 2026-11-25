@@ -474,8 +474,11 @@ process id). So `./tray-window <icon id> <name>` asks D-Bus for the icon's
 process and lists that process's windows, children included. The window it
 picks to bring forward is never a Chromium web app's: Chrome and its web apps
 are one process, but each web app is its own app with its own taskbar
-button. A window whose class contains the icon's name comes first (`chrome`
-finds `google-chrome`), then the most recently used. With only web apps open,
+button. The process's own windows come first, and a child process's only
+when it has none (Steam draws its windows from a child; an app that starts
+other apps doesn't bring those forward). Then a window whose class contains
+the icon's name (`chrome` finds `google-chrome`), then the most recently
+used. With only web apps open,
 Chrome counts as having no window, so the click starts it. Run the script by
 hand to see what a click would do. To pick the "before" view, the tray runs
 it when the pointer reaches the icon, so the app's own click isn't delayed.
