@@ -317,8 +317,9 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
 - **Look** comes from Omarchy: `Commons.Color.bar`, `Style.font`,
   `Style.bar.sizeHorizontal`, and the top bar's `background` choice read
   from `shell.barConfig`. The bar hides when the top bar does
-  (`shell.bar.barHidden`) and under a real fullscreen window (`fullscreen`
-  bit 2), not under a maximized one.
+  (`shell.bar.barHidden`, Omarchy's toggle flag) unless the bar option
+  `hideWithTopBar` is off (Transom as the only bar), and under a real
+  fullscreen window (`fullscreen` bit 2), not under a maximized one.
 - **Layout and settings:** `transom.json` holds `left`, `center`, `right`
   (lists of `{ id, enabled?, ...settings }`) and a `bar` object (bar-wide
   options, `barSettingsSpec`). `Settings.readLayout` reads the file and

@@ -32,6 +32,12 @@ then release 0.2.0 through the ship-update skill.
   Hyprland; tested (the chunk, the script, the dispatch path; three
   mutations).
 
+- [x] **Hide with the top bar** (Cody, 2026-11-24): the taskbar always
+  hid while Omarchy's top bar was toggled off. New bar option
+  `hideWithTopBar` (on, today's behaviour; a row in both menus): off keeps
+  the taskbar up then, for using Transom as the only bar. Tested (the
+  dropdown switch, the service's hidden state; three mutations).
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with
@@ -202,8 +208,7 @@ path (the keys are tested), L10, and R1-L5/L7/L10/L11. Round 2 found no
 critical or high, so by the strict-review skill's rule the loop stops
 here; the mutation check runs every entry with --all before the release.
 
-Documented, not changed: Transom hides when Omarchy's bar is toggled off
-(by design: it follows the top bar); with Omarchy's bar at the bottom and
+Documented, not changed: with Omarchy's bar at the bottom and
 auto-hide on, they overlap (R1-M5); the public CLAUDE.md keeps its
 maintainer section and working-copy path (the accepted template lines);
 `dev/` ships; the show-desktop double-click race (S nit).

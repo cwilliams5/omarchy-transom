@@ -133,6 +133,16 @@ AnchoredPopup {
       onTriggered: menu.change("bar", { autohide: !checked })
     }
 
+    // While Omarchy's top bar is toggled off. Unticked, the taskbar stays
+    // up then (Transom as the only bar).
+    MenuItemRow {
+      visible: menu.page === "main"
+      text: "Hide with the top bar"
+      checkColumn: true
+      checked: !!menu.bar && menu.bar.settings.hideWithTopBar !== false
+      onTriggered: menu.change("bar", { hideWithTopBar: checked ? false : undefined })
+    }
+
     // The top-bar widget's icon (bar option topBarIcon). Here because a
     // hidden icon, or a widget dragged off the top bar, can't bring itself
     // back: unticked, a click shows the icon, putting the widget back on

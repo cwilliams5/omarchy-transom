@@ -474,5 +474,26 @@
     "find": "if (( KEEP_POINTER )); then",
     "replace": "if false; then",
     "why": "minimizing from the bar moves the pointer"
+  },
+  {
+    "name": "top-bar-hide-ignores-option",
+    "file": "Service.qml",
+    "find": "  readonly property bool hidden: topBarHidden && root.settings.hideWithTopBar !== false",
+    "replace": "  readonly property bool hidden: topBarHidden",
+    "why": "the taskbar hides with the top bar although Hide with the top bar is off"
+  },
+  {
+    "name": "top-bar-hide-never",
+    "file": "Service.qml",
+    "find": "  readonly property bool hidden: topBarHidden && root.settings.hideWithTopBar !== false",
+    "replace": "  readonly property bool hidden: root.settings.hideWithTopBar === false",
+    "why": "the taskbar no longer hides with the top bar by default"
+  },
+  {
+    "name": "with-top-bar-switch-dead",
+    "file": "BarWidget.qml",
+    "find": "onToggled: root.change(\"bar\", { hideWithTopBar: root.barSettings.hideWithTopBar !== false ? false : undefined })",
+    "replace": "onToggled: root.change(\"bar\", { hideWithTopBar: undefined })",
+    "why": "the dropdown's Hide with the top bar switch saves nothing"
   }
 ]

@@ -207,7 +207,7 @@ Panel {
   // left column, the right column, the buttons. Rows hidden right now
   // (a section switched off) are left out.
   readonly property var navKeys: {
-    var keys = ["shown", "autohide", "locked", "pointer"]
+    var keys = ["shown", "autohide", "withTopBar", "locked", "pointer"]
     if (root.severalScreens) keys.push("screens")
     keys.push("topBarIcon")
     keys.push("tasks")
@@ -402,6 +402,15 @@ Panel {
                 label: "Automatically hide the taskbar"
                 checked: root.autohide
                 onToggled: root.change("bar", { autohide: !root.autohide })
+              }
+
+              // Off, the taskbar stays up while Omarchy's top bar is toggled
+              // off (Transom as the only bar).
+              SwitchRow {
+                key: "withTopBar"
+                label: "Hide with the top bar"
+                checked: root.barSettings.hideWithTopBar !== false
+                onToggled: root.change("bar", { hideWithTopBar: root.barSettings.hideWithTopBar !== false ? false : undefined })
               }
 
               SwitchRow {

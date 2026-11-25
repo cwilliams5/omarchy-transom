@@ -116,7 +116,7 @@ ShellRoot {
         loaded: !!w, ready: !!w && w.serviceReady, copies: svc.widgetCopies, problem: svc.settingsProblem,
         onBar: svc.widgetOnBar, shown: svc.taskbarShown, iconShown: svc.topBarIconShown,
         warn: svc.iconKeepsTransomOn, width: w ? w.implicitWidth : -1,
-        keys: w ? w.navKeys : [], cursor: w ? w.cursorKey : ""
+        keys: w ? w.navKeys : [], cursor: w ? w.cursorKey : "", hidden: svc.hidden
       })
     }
     function move(dx: int, dy: int): string { w.moveCursor(dx, dy); return w.cursorKey }
@@ -141,6 +141,7 @@ ShellRoot {
     function restore(address: string, workspace: int): string { svc.restoreWindow(address, workspace); return "ok" }
     function setIcon(on: bool): string { svc.setTopBarIconShown(on); return "ok" }
     function layout(on: bool): string { fakeShell.widgetOnLayout = on; return String(svc.widgetOnBar) }
+    function topBar(hidden: bool): string { fakeShell.bar = { barHidden: hidden }; return String(svc.hidden) }
   }
 }
 EOF
@@ -175,7 +176,7 @@ check "Show: shown and saved" "$(st .shown),$(file .bar.visible)" "true,null"
 
 check "the widget loads and finds the service (through Registry.js)" "$(st .ready)" "true"
 check "...and counts itself with it (the widget never did, 2026-11-23)" "$(st .copies)" "1"
-check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide locked pointer topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
+check "the rows the keyboard stops on" "$(st '.keys | join(" ")')" "shown autohide withTopBar locked pointer topBarIcon tasks iconsOnly activeClick combine thumbnails plainTitles windows tray overflow maxIcons trayClick quicklaunch appIcons windowIcons menu file"
 check "the first key lands on the first row" "$(wt move 0 1)" "shown"
 check "down moves to the next" "$(wt move 0 1)" "autohide"
 
@@ -183,6 +184,16 @@ wt activate >/dev/null; sleep 0.4
 check "Enter on auto-hide saves it" "$(file .bar.autohide)" "true"
 wt cursor locked >/dev/null; wt activate >/dev/null; sleep 0.4
 check "Enter on Lock saves it" "$(file .bar.locked)" "true"
+
+# Omarchy's top bar toggled off: the taskbar hides with it by default; the
+# "Hide with the top bar" switch off keeps it up (Transom as the only bar).
+check "the top bar toggled off: the taskbar hides with it" "$(wt topBar true)" "true"
+wt cursor withTopBar >/dev/null; wt activate >/dev/null; sleep 0.4
+check "Hide with the top bar off: saved, and the taskbar stays up" "$(file .bar.hideWithTopBar),$(st .hidden)" "false,false"
+wt cursor withTopBar >/dev/null; wt activate >/dev/null; sleep 0.4
+check "...on again: back to the default, hidden with the top bar" "$(file .bar.hideWithTopBar),$(st .hidden)" "null,true"
+wt topBar false >/dev/null
+check "...and shown when the top bar is" "$(st .hidden)" "false"
 
 wt cursor shown >/dev/null; wt activate >/dev/null; sleep 0.4
 check "Show the taskbar off: hidden and saved" "$(st .shown),$(file .bar.visible)" "false,false"

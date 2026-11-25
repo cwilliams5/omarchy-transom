@@ -58,8 +58,11 @@ Item {
   readonly property color urgent: Commons.Color.bar.active
   readonly property string fontFamily: Style.font.family
   readonly property int barSize: Style.bar.sizeHorizontal
-  // Hidden whenever the top bar is.
-  readonly property bool hidden: !!(shell && shell.bar && shell.bar.barHidden)
+  // Omarchy's top bar is toggled off (omarchy-toggle-bar).
+  readonly property bool topBarHidden: !!(shell && shell.bar && shell.bar.barHidden)
+  // The taskbar hides with it, unless the bar option hideWithTopBar is off
+  // (Transom as the only bar, the more Windows-like setup).
+  readonly property bool hidden: topBarHidden && root.settings.hideWithTopBar !== false
 
   // --------------------------------------------------------------- widgets
 
@@ -198,6 +201,9 @@ Item {
     // Windows' "Automatically hide the taskbar": hidden until the pointer
     // reaches the bottom edge, and windows get the space back.
     autohide: { default: false },
+    // Hide while Omarchy's top bar is toggled off. Off keeps the taskbar up
+    // then, for using it as the only bar.
+    hideWithTopBar: { default: true },
     // How long after the pointer leaves the bar it hides (ms).
     autohideDelay: { default: 600, min: 0, max: 10000 },
     // How it appears and goes: at once, or sliding (a short slide).

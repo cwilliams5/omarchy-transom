@@ -190,6 +190,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
 | `iconStyleOn` | `{ "tray": true, "quickLaunch": true, "inactiveWindows": false, "activeWindow": false }` | `false` keeps the tray or quick launch in color on its own; `activeWindow: true` restyles the focused window's button too. `inactiveWindows` is the 0.1.0 way to style window buttons (see "Icon styles"). |
 | `autohide` | `false` | Windows' "Automatically hide the taskbar". See "Auto-hide". |
+| `hideWithTopBar` | `true` | Hide the taskbar while Omarchy's top bar is toggled off. `false` keeps it up then, for using Transom as your only bar. |
 | `autohideDelay` | `600` | ms after the pointer leaves before it hides (0-10000) |
 | `reveal` | `"instant"` | How it comes and goes: `"instant"` or `"slide"` (a 150ms slide) |
 | `screens` | `"all"` | Which screens get a bar: `"all"`, `"primary"` (Hyprland's first monitor), or monitor names like `["eDP-1", "DP-2"]` (`hyprctl monitors` lists them). Names that match nothing connected fall back to all. |
@@ -212,8 +213,9 @@ Right-click any empty part of the bar, including the sides of the taskbar:
 |---|---|
 | Lock the taskbar ✓ | The bar option `locked`: no dragging anything |
 | Show on all displays ✓ | The bar option `screens`: all, or the primary only (shown with more than one screen) |
-| Automatically hide the taskbar ✓ | The bar option `autohide` |
 | Move the pointer to the window ✓ | The bar option `pointerToWindow` |
+| Automatically hide the taskbar ✓ | The bar option `autohide` |
+| Hide with the top bar ✓ | The bar option `hideWithTopBar`: unticked, the taskbar stays up while Omarchy's top bar is toggled off |
 | Top-bar icon ✓ | The bar option `topBarIcon`: brings a hidden icon back, and puts the widget back on Omarchy's bar if it was dragged off |
 | Icons: … | Cycles `iconStyle` (the tray and quick launch): color → gray → theme color |
 | Window icons: … | Cycles `windowIconStyle` (the taskbar buttons) the same way |
@@ -249,7 +251,7 @@ as its bottom rail (left out while the taskbar is hidden).
 
 | Click | Does |
 |---|---|
-| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, lock, move the pointer to the window, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, click the active window to minimize, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
+| Left or right | A dropdown with nearly everything the bar menu has. **Show the taskbar** across the top, then two columns. Bar: auto-hide, hide with the top bar, lock, move the pointer to the window, all displays (with more than one screen), and **Top-bar icon** (this icon). Taskbar buttons (on/off): icons only, click the active window to minimize, combine, thumbnails, plain titles, which windows. System tray (on/off): overflow, how many icons before "^" (a slider), Windows-style left click. Quick launch (on/off). Icons: the style for the tray and quick launch, for window buttons, whether the focused window stays in color, and which theme color. Buttons open the bar menu (for Omarchy's widgets and hidden tray icons) and the settings file. A section switched off hides its rows. Keyboard: j/k or the arrows, h/l on the slider, Enter. |
 | Middle | Show or hide the taskbar |
 
 **Hiding the taskbar** (the bar option `visible`) takes it off every
@@ -320,7 +322,8 @@ don't all fit, then go icon-only. Titles are cut off with "…" and never
 scroll. The row is centered on the screen. Windows asking for attention get
 a steady tint, never a flash. Thumbnail previews are off unless you turn
 them on (`thumbnails`).
-The bar hides under a real fullscreen window and when the top bar is hidden.
+The bar hides under a real fullscreen window, and while Omarchy's top bar
+is toggled off unless `hideWithTopBar` is off (Transom as your only bar).
 
 ### Tasks settings
 
