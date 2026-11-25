@@ -340,10 +340,13 @@ stale=$(windows "$(win 0xa -98 special:minimized '[]' 1)" "$(win 0xb -98 special
 tag='["omarchy-minimized-from-2"]'
 down=$(windows "$(win 0xa -98 special:minimized "$tag" 1)" "$(win 0xb -98 special:minimized "$tag" 0)")
 sdst() { wt sdState | jq -c "$1"; }
+# Each scenario starts once the last one's chains have ended: a chain still
+# running would turn the next scenario's clicks into queued ones.
+sdreset() { for _ in $(seq 50); do [ "$(sdst .busy)" = false ] && break; sleep 0.1; done; wt sdReset "$@" >/dev/null; }
 until_t() { sleep "$(awk -v t0="$1" -v at="$2" -v now="$(date +%s.%N)" 'BEGIN { d = t0 + at - now; print (d > 0 ? d : 0) }')"; }
 
 # The chain takes 1 s, then 1 s for the tags; they arrive at 1.5 s.
-wt sdReset "sleep 1" 5000 1000 >/dev/null; wt sdWindows "$open2" >/dev/null
+sdreset "sleep 1" 5000 1000; wt sdWindows "$open2" >/dev/null
 t0=$(date +%s.%N); wt sdClick >/dev/null
 first=$(sdst '[.minimizes, .busy]')
 wt sdWindows "$half" >/dev/null; wt sdClick >/dev/null
@@ -355,26 +358,27 @@ check "show desktop: a click minimizes the workspace's windows, the active one l
 check "...a second click while they go down waits: no second minimize" "$second" '[["0xa,0xb"],true]'
 check "...and once they're down and tagged, brings them all back" "$(sdst '[.restores, .busy, .queued]')" '[["2:0xa,0xb"],false,false]'
 
-wt sdReset "sleep 0.2" 5000 200 >/dev/null; wt sdWindows "$open2" >/dev/null
+sdreset "sleep 0.2" 5000 200; wt sdWindows "$open2" >/dev/null
 wt sdClick >/dev/null; sleep 0.8; wt sdWindows "$stale" >/dev/null; wt sdClick >/dev/null
 wt sdWindows "$down" >/dev/null; wt sdClick >/dev/null
 check "...a click that finds nothing to bring back (tags not read yet) keeps the record" "$(sdst .restores)" '["2:","2:0xa,0xb"]'
-wt sdReset "sleep 0.5" 5000 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+sdreset "sleep 0.5" 5000 300; wt sdWindows "$open2" >/dev/null
 wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.2
 check "...a third click takes the queued one back" "$(sdst '[.minimizes, .restores, .queued]')" '[["0xa,0xb"],[],false]'
-wt sdReset "sleep 0.5" 5000 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+sdreset "sleep 0.5" 5000 300; wt sdWindows "$open2" >/dev/null
 wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; sleep 1.2
 check "...a queued click is dropped when the workspace changed meanwhile" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
-wt sdReset "sleep 0.5" 5000 300 >/dev/null
+sdreset "sleep 0.5" 5000 300
 wt sdWindows "$(windows "$(win 0xa 2 2 '[]' 1)" "$(win 0xb 2 2 '[]' 0)" "$(win 0xc 3 3 '[]' 2)")" >/dev/null
 wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; wt sdClick >/dev/null; sleep 1.2
 check "...a click on another workspace meanwhile (one was queued here) runs there once the first is done" "$(sdst .minimizes)" '["0xa,0xb","0xc"]'
 # The chain's child stands in for a hung hyprctl: the deadline must stop it
 # too, not only the shell running the chain.
-wt sdReset "sleep 5.4321; true" 800 300 >/dev/null; wt sdWindows "$open2" >/dev/null
-wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.5
-check "...a chain past its deadline is stopped and the queued click dropped (rule 20)" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
-check "...everything it started stopped too" "$(pgrep -f 'sleep 5.4321' | wc -l)" "0"
+sdreset "sleep 5.4321; true" 800 300; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; started=$(sdst '[.minimizes, .busy]'); wt sdClick >/dev/null; sleep 1.5
+check "...a chain past its deadline is stopped and the queued click dropped (rule 20)" "$started,$(sdst '[.restores, .queued, .busy]')" '[["0xa,0xb"],true],[[],false,false]'
+# Anchored: only the sleep itself, not a shell whose command line names it.
+check "...everything it started stopped too" "$(pgrep -f '^sleep 5[.]4321$' | wc -l)" "0"
 
 # A settings file that's there but can't be read is a problem, not "no
 # file yet": nothing is saved over it, and it's read again once it can be.

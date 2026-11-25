@@ -492,12 +492,13 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
 
 - **Tests:** `tests/run` before every commit (about 40 s, nothing on
   screen, nothing written outside temp folders):
-  - `node tests/run.js` (125 tests): every pure `.js` file but `CaptureCache.js`
+  - `node tests/run.js` (126 tests): every pure `.js` file but `CaptureCache.js`
     and `Registry.js` (`.pragma library`, which node can't load).
-  - `tests/scripts.test.sh` (16 checks): `minimize` and `tray-window`
+  - `tests/scripts.test.sh` (23 checks): `minimize` and `tray-window`
     against stand-in `hyprctl` and `busctl` that log and answer from
-    fixtures.
-  - `tests/widget.test.sh` (72 checks): the real `BarWidget.qml` and
+    fixtures (one that never answers, too), and both pointer chunks run in
+    Lua against a stand-in Hyprland API (skipped if no `lua` is installed).
+  - `tests/widget.test.sh` (79 checks): the real `BarWidget.qml` and
     `Service.qml` in a throwaway Quickshell on Qt's offscreen platform,
     with HOME and the XDG folders in a temp folder, no Hyprland connection,
     `BarWindow.qml` stubbed (layer-shell windows can't exist offscreen) and
@@ -508,7 +509,7 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     `toplevels` and `workspaceId` are settable for this), its minimize
     chain a `sleep`.
   - **Mutation check:** `node tests/mutate.js` (`--all` adds the widget
-    test, about an hour) plants each of the 79 entries in
+    test, about an hour) plants each of the 89 entries in
     `tests/mutations.json` on a scratch copy and expects a test to fail.
     It runs the unmutated suite first and stops if that fails. Add an
     entry for every fix.

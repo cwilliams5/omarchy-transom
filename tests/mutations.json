@@ -436,7 +436,7 @@
   {
     "name": "r2-dragged-off-widget-stranded",
     "file": "Service.qml",
-    "find": "    if (on && !root.widgetOnBar) root.putWidgetOnTopBar()\n",
+    "find": "      root.putWidgetOnTopBar()\n",
     "replace": "",
     "why": "a widget dragged off the top bar has no way back from the taskbar"
   },
@@ -457,8 +457,8 @@
   {
     "name": "pointer-not-restored",
     "file": "TasksModel.js",
-    "find": "    + body + \"; \"\n    + \"hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })\"",
-    "replace": "    + body",
+    "find": "var POINTER_RESTORE = \"if saved then pcall(function() hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } }) end) end\"",
+    "replace": "var POINTER_RESTORE = \"\"",
     "why": "the user's pointer setting stays switched off after a click"
   },
   {
@@ -499,7 +499,7 @@
   {
     "name": "show-desktop-no-queue",
     "file": "widgets/ShowDesktop.qml",
-    "find": "    if (root.busy) {\n      root.queued = !root.queued\n      return\n    }\n",
+    "find": "    if (root.busy) {\n      if (root.queued && root.queuedWorkspace === root.workspaceId) {\n        root.queued = false\n      } else {\n        root.queued = true\n        root.queuedWorkspace = root.workspaceId\n      }\n      return\n    }\n",
     "replace": "",
     "why": "a quick second click minimizes again and cuts the record down"
   },
@@ -513,8 +513,8 @@
   {
     "name": "show-desktop-no-settle",
     "file": "widgets/ShowDesktop.qml",
-    "find": "      settle.interval = root.settleMs\n      settle.restart()",
-    "replace": "      root.settled()",
+    "find": "    settle.interval = root.settleMs\n    settle.restart()",
+    "replace": "    root.settled()",
     "why": "the queued click runs before the tags are read back and restores nothing"
   },
   {
@@ -527,7 +527,7 @@
   {
     "name": "show-desktop-workspace-ignored",
     "file": "widgets/ShowDesktop.qml",
-    "find": "    var again = root.queued && root.workspaceId === root.busyWorkspace",
+    "find": "    var again = root.queued && root.workspaceId === root.queuedWorkspace",
     "replace": "    var again = root.queued",
     "why": "a queued click acts on a workspace switched to meanwhile"
   },
@@ -548,8 +548,8 @@
   {
     "name": "tray-children-ignored",
     "file": "tray-window",
-    "find": "          | select(descends(.pid)) ]",
-    "replace": "          | select(.pid == $owner) ]",
+    "find": "        | select(descends(.pid)) ]",
+    "replace": "        | select(.pid == $owner) ]",
     "why": "an app drawing its windows from a child process (Steam) gets none"
   },
   {
