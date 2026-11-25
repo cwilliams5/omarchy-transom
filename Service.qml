@@ -776,14 +776,20 @@ Item {
     ])
   }
 
-  // Minimizes windows, one after another (a button's click or menu, show
-  // desktop). --keep-pointer: the script's focus leaves the pointer where it
-  // is, as the bar's other clicks do.
+  // Minimizes windows, one after another (a button's click or menu).
   function minimizeWindows(addresses) {
     if (!addresses || addresses.length === 0) return
-    var script = Util.shellQuote(root.pluginDir + "/minimize") + (root.keepPointer ? " --keep-pointer" : "")
     console.log("transom: minimize " + addresses.join(" "))
-    Util.execDetached(addresses.map(function(address) { return script + " " + Util.shellQuote(address) }).join("; "))
+    Util.execDetached(root.minimizeCommand(addresses))
+  }
+
+  // The shell command that minimizes windows one after another (show
+  // desktop runs it itself, to know when it's done). --keep-pointer: the
+  // script's focus leaves the pointer where it is, as the bar's other
+  // clicks do.
+  function minimizeCommand(addresses) {
+    var script = Util.shellQuote(root.pluginDir + "/minimize") + (root.keepPointer ? " --keep-pointer" : "")
+    return (addresses || []).map(function(address) { return script + " " + Util.shellQuote(address) }).join("; ")
   }
 
   // Brings several minimized windows back to a workspace, in order; the

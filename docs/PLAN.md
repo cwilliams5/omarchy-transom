@@ -38,6 +38,18 @@ then release 0.2.0 through the ship-update skill.
   the taskbar up then, for using Transom as the only bar. Tested (the
   dropdown switch, the service's hidden state; three mutations).
 
+- [x] **Show desktop double-click** (S nit in R2, Cody asked 2026-11-24):
+  each window's `minimize` is a few hyprctl calls, so the first click's
+  chain takes a moment per window, and Transom reads the tags back 100 ms
+  after. A second click inside that minimized again and cut the record
+  down to the windows still open, or found nothing to bring back and
+  forgot them. Fix: show desktop runs the chain itself (a Process, from
+  `Service.minimizeCommand`); until it ends and the tags are read, a click
+  is queued and runs then (dropped if the workspace changed, or the chain
+  passed its 10 s deadline); a click that finds nothing keeps the record.
+  Tested on fake windows in widget.test.sh (six mutations). The real
+  chain's timing: by Cody.
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with
@@ -211,7 +223,7 @@ here; the mutation check runs every entry with --all before the release.
 Documented, not changed: with Omarchy's bar at the bottom and
 auto-hide on, they overlap (R1-M5); the public CLAUDE.md keeps its
 maintainer section and working-copy path (the accepted template lines);
-`dev/` ships; the show-desktop double-click race (S nit).
+`dev/` ships. (The show-desktop double-click race, an S nit, is fixed above.)
 
 Kept as known limits: English only (F L5); `dev/` ships with the plugin
 (F L7); Hyprland's own `no_screen_share` blanking stays the real privacy

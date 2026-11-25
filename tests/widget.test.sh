@@ -80,6 +80,7 @@ import QtQuick
 import Quickshell
 import qs.Commons
 import "file://$dir/repo" as T
+import "file://$dir/repo/widgets" as TW
 ShellRoot {
   // The bar config the plugin host hands a service: Omarchy's bar section.
   QtObject {
@@ -106,6 +107,21 @@ ShellRoot {
     function hideTooltip(item) {}
     function showTooltip(item, text) {}
   }
+  // Show desktop (widgets/ShowDesktop.qml) on a stand-in bar, with fake
+  // windows: its minimize chain is a sleep, and restores are only recorded.
+  QtObject {
+    id: fakeTaskbar
+    property int barSize: 26
+    property color foreground: "white"
+    property string fontFamily: "sans"
+    property string chainCommand: "sleep 1"
+    property var minimizes: []
+    property var restores: []
+    function minimizeCommand(addresses) { minimizes = minimizes.concat([addresses.join(",")]); return chainCommand }
+    function restoreWindows(addresses, workspaceId) { restores = restores.concat([workspaceId + ":" + addresses.join(",")]) }
+    function dismissPopups() {}
+  }
+  TW.ShowDesktop { id: sd; bar: fakeTaskbar; workspaceId: 2; toplevels: [] }
   // Not loaded at first: the start-up grace is tested before it appears.
   Loader { id: widgetLoader; active: false; sourceComponent: Component { T.BarWidget { bar: fakeBar } } }
   readonly property var w: widgetLoader.item
@@ -141,6 +157,18 @@ ShellRoot {
     function restore(address: string, workspace: int): string { svc.restoreWindow(address, workspace); return "ok" }
     function setIcon(on: bool): string { svc.setTopBarIconShown(on); return "ok" }
     function layout(on: bool): string { fakeShell.widgetOnLayout = on; return String(svc.widgetOnBar) }
+    function sdReset(chain: string, deadline: int, settle: int): string {
+      fakeTaskbar.minimizes = []; fakeTaskbar.restores = []; fakeTaskbar.chainCommand = chain
+      sd.chainDeadlineMs = deadline; sd.settleMs = settle; sd.workspaceId = 2; sd.minimizedByUs = ({})
+      return "ok"
+    }
+    // Base64: qs ipc splits an argument at its commas.
+    function sdWindows(json64: string): string { sd.toplevels = JSON.parse(Qt.atob(json64)); return "ok" }
+    function sdWorkspace(id: int): string { sd.workspaceId = id; return "ok" }
+    function sdClick(): string { sd.clicked(); return "ok" }
+    function sdState(): string {
+      return JSON.stringify({ busy: sd.busy, queued: sd.queued, minimizes: fakeTaskbar.minimizes, restores: fakeTaskbar.restores, windows: sd.toplevels.length, open: sd.openWindows() })
+    }
     function topBar(hidden: bool): string { fakeShell.bar = { barHidden: hidden }; return String(svc.hidden) }
   }
 }
@@ -298,6 +326,48 @@ check "the same JSON error a second time notifies again (R2-L1)" "$(grep -c "^no
 check "while broken, Show the taskbar still works, in memory (R2-L3)" "$(wt showBar | cut -c1-22),$(st .shown)" "shown, but not saved: ,true"
 printf '{ "right": { "id": "tray" } }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
 check "a section that isn't a list is a problem too" "$(st '.problem | test("must be a list")')" "true"
+
+# Show desktop: a second click while the first one's windows are going down
+# waits until they're down and their tags are read back, then brings them
+# back (it minimized again, or restored nothing, before).
+win() { # address workspace-id workspace-name tags focus-order
+  printf '{"address":"%s","workspace":{"id":%s,"name":"%s"},"lastIpcObject":{"tags":%s,"mapped":true,"focusHistoryID":%s}}' "$@"
+}
+windows() { printf '[%s]' "$(IFS=,; echo "$*")" | base64 -w0; }
+open2=$(windows "$(win 0xa 2 2 '[]' 1)" "$(win 0xb 2 2 '[]' 0)")
+half=$(windows "$(win 0xa -98 special:minimized '[]' 1)" "$(win 0xb 2 2 '[]' 0)")
+stale=$(windows "$(win 0xa -98 special:minimized '[]' 1)" "$(win 0xb -98 special:minimized '[]' 0)")
+tag='["omarchy-minimized-from-2"]'
+down=$(windows "$(win 0xa -98 special:minimized "$tag" 1)" "$(win 0xb -98 special:minimized "$tag" 0)")
+sdst() { wt sdState | jq -c "$1"; }
+until_t() { sleep "$(awk -v t0="$1" -v at="$2" -v now="$(date +%s.%N)" 'BEGIN { d = t0 + at - now; print (d > 0 ? d : 0) }')"; }
+
+# The chain takes 1 s, then 1 s for the tags; they arrive at 1.5 s.
+wt sdReset "sleep 1" 5000 1000 >/dev/null; wt sdWindows "$open2" >/dev/null
+t0=$(date +%s.%N); wt sdClick >/dev/null
+first=$(sdst '[.minimizes, .busy]')
+wt sdWindows "$half" >/dev/null; wt sdClick >/dev/null
+second=$(sdst '[.minimizes, .queued]')
+wt sdWindows "$stale" >/dev/null
+until_t "$t0" 1.5; wt sdWindows "$down" >/dev/null
+until_t "$t0" 2.6
+check "show desktop: a click minimizes the workspace's windows, the active one last" "$first" '[["0xa,0xb"],true]'
+check "...a second click while they go down waits: no second minimize" "$second" '[["0xa,0xb"],true]'
+check "...and once they're down and tagged, brings them all back" "$(sdst '[.restores, .busy, .queued]')" '[["2:0xa,0xb"],false,false]'
+
+wt sdReset "sleep 0.2" 5000 200 >/dev/null; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; sleep 0.8; wt sdWindows "$stale" >/dev/null; wt sdClick >/dev/null
+wt sdWindows "$down" >/dev/null; wt sdClick >/dev/null
+check "...a click that finds nothing to bring back (tags not read yet) keeps the record" "$(sdst .restores)" '["2:","2:0xa,0xb"]'
+wt sdReset "sleep 0.5" 5000 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.2
+check "...a third click takes the queued one back" "$(sdst '[.minimizes, .restores, .queued]')" '[["0xa,0xb"],[],false]'
+wt sdReset "sleep 0.5" 5000 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; sleep 1.2
+check "...a queued click is dropped when the workspace changed meanwhile" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
+wt sdReset "sleep 5" 800 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.3
+check "...a chain past its deadline is stopped and the queued click dropped (rule 20)" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
 
 errors=$(grep -aE 'ReferenceError|TypeError|is not defined|Cannot assign|unavailable|Failed to load|Unable to assign' "$dir/log.txt" | grep -v qmlscanner || true)
 check "no QML errors" "$errors" ""

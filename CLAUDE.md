@@ -484,7 +484,10 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     `BarWindow.qml` stubbed (layer-shell windows can't exist offscreen) and
     Omarchy's `KeyboardPanel` stubbed (as Quiesce's panel test does).
     Every command Transom could run is a logging stand-in, and the test
-    fails if any but a notification ran.
+    fails if any but a notification ran. It also loads the real
+    `widgets/ShowDesktop.qml` on a stand-in bar with fake windows (its
+    `toplevels` and `workspaceId` are settable for this), its minimize
+    chain a `sleep`.
   - **Mutation check:** `node tests/mutate.js` (`--all` adds the widget
     test, about 15 min) plants each of the 47 entries in
     `tests/mutations.json` on a scratch copy and expects a test to fail.
@@ -492,8 +495,9 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     entry for every fix.
   - **Not covered by any test** (checked live, or by reading): the bars
     themselves (`BarWindow.qml`, auto-hide, drag), `Tasks.qml`'s actions,
-    `Tray.qml`'s click flow and late-answer drop, `ShowDesktop.qml` beyond
-    `TasksModel.restorable`, `WindowPreview.qml`'s privacy check, `BarMenu.qml`,
+    `Tray.qml`'s click flow and late-answer drop, `ShowDesktop.qml` with
+    real windows and the real `minimize` chain, `WindowPreview.qml`'s
+    privacy check, `BarMenu.qml`,
     and Service.qml's workspace memory (`workspaceScreens`). The widget test
     does run the real dispatch path (`focusWindow`, `restoreWindow`) through
     a stand-in `hyprctl`.

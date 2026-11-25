@@ -521,7 +521,9 @@ Example: Steam and Discord always visible, at most 3 icons, Chrome's hidden:
 A thin button in the bar's corner, as on Windows: a click minimizes every
 window on the workspace; the next click brings those back, and the one that
 was active last gets focus. If anything was opened or brought back in
-between, the click minimizes everything again. The minimized windows are
+between, the click minimizes everything again. A quick double-click shows
+the desktop and comes back: a second click while the windows are still
+going down waits for them, then brings them back. The minimized windows are
 ordinary ones: they're on the taskbar, dimmed. Entry
 `{ "id": "showdesktop" }`; settings `width` (px, default 10) and `tooltip`.
 It's last in the right section, flush with the corner.

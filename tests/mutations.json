@@ -495,5 +495,47 @@
     "find": "onToggled: root.change(\"bar\", { hideWithTopBar: root.barSettings.hideWithTopBar !== false ? false : undefined })",
     "replace": "onToggled: root.change(\"bar\", { hideWithTopBar: undefined })",
     "why": "the dropdown's Hide with the top bar switch saves nothing"
+  },
+  {
+    "name": "show-desktop-no-queue",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "    if (root.busy) {\n      root.queued = !root.queued\n      return\n    }\n",
+    "replace": "",
+    "why": "a quick second click minimizes again and cuts the record down"
+  },
+  {
+    "name": "show-desktop-queue-dropped",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "    if (again) root.clicked()\n",
+    "replace": "",
+    "why": "a quick double-click never brings the windows back"
+  },
+  {
+    "name": "show-desktop-no-settle",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "      settle.interval = root.settleMs\n      settle.restart()",
+    "replace": "      root.settled()",
+    "why": "the queued click runs before the tags are read back and restores nothing"
+  },
+  {
+    "name": "show-desktop-no-deadline",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "      deadline.restart()\n",
+    "replace": "",
+    "why": "a hung minimize chain leaves show desktop busy for good"
+  },
+  {
+    "name": "show-desktop-workspace-ignored",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "    var again = root.queued && root.workspaceId === root.busyWorkspace",
+    "replace": "    var again = root.queued",
+    "why": "a queued click acts on a workspace switched to meanwhile"
+  },
+  {
+    "name": "show-desktop-forgets-on-empty",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "      if (back.length > 0) next[root.workspaceId] = []",
+    "replace": "      next[root.workspaceId] = []",
+    "why": "a click before the tags are read forgets the windows to bring back"
   }
 ]
