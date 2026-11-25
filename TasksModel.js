@@ -115,10 +115,14 @@ function skipsTaskbar(tags) {
 // APPROACH_MS before the pointer reached the bar: with focus following the
 // mouse (Omarchy's tiled workspaces), the pointer passing over a window on
 // its way down focuses it, and that click was meant to bring it forward.
-// activeSince and barEnteredAt are times in ms; 0 when unknown.
+// It holds back one click only: spentFor is the activeSince of a click it
+// already held back, and the next click on that window minimizes (without
+// it, every click stayed held back until the pointer left the bar).
+// activeSince, barEnteredAt and spentFor are times in ms; 0 when unknown.
 var APPROACH_MS = 1000
-function activeClickMinimizes(setting, activeSince, barEnteredAt) {
+function activeClickMinimizes(setting, activeSince, barEnteredAt, spentFor) {
   if (setting !== "minimize") return false
+  if (activeSince > 0 && activeSince === spentFor) return true
   var gap = barEnteredAt - activeSince
   return !(activeSince > 0 && barEnteredAt > 0 && gap >= 0 && gap < APPROACH_MS)
 }
@@ -130,14 +134,20 @@ function activeClickMinimizes(setting, activeSince, barEnteredAt) {
 // cursor.warp_on_change_workspace 0, then the user's values back), the way
 // Latch does it. Hyprland runs the chunk start to finish, so nothing else
 // can focus a window while they're off: the user's setting never visibly
-// changes (verified in a nested Hyprland, 2026-11-24).
+// changes (verified in a nested Hyprland, 2026-11-24). Saving and setting
+// are guarded too: should Hyprland rename or drop one of those options, the
+// steps still run (the pointer just moves) and nothing is left switched
+// off; unguarded, a missing option stopped every action, or left
+// warp_on_change_workspace at 0 for the session (tried in a nested
+// Hyprland, 2026-11-24).
+var POINTER_SAVE = "local ok, w, c = pcall(function() return hl.get_config(\"cursor.no_warps\"), hl.get_config(\"cursor.warp_on_change_workspace\") end)"
+  + "; local saved = ok and w ~= nil and c ~= nil"
+  + "; if saved then pcall(function() hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }) end) end"
+var POINTER_RESTORE = "if saved then pcall(function() hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } }) end) end"
 function dispatchChunk(steps, keepPointer) {
-  var body = (steps || []).map(function(step) { return "pcall(function() hl.dispatch(" + step + ") end)" }).join("; ")
-  if (!keepPointer) return body
-  return "local w = hl.get_config(\"cursor.no_warps\"); local c = hl.get_config(\"cursor.warp_on_change_workspace\"); "
-    + "hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }); "
-    + body + "; "
-    + "hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })"
+  var body = (steps || []).map(function(step) { return "pcall(function() hl.dispatch(" + step + ") end)" })
+  if (!keepPointer) return body.join("; ")
+  return [POINTER_SAVE].concat(body, [POINTER_RESTORE]).join("; ")
 }
 
 // Whether a window's last snapshot shows it maximized: Hyprland's

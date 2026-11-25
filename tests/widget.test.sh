@@ -365,9 +365,28 @@ check "...a third click takes the queued one back" "$(sdst '[.minimizes, .restor
 wt sdReset "sleep 0.5" 5000 300 >/dev/null; wt sdWindows "$open2" >/dev/null
 wt sdClick >/dev/null; wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; sleep 1.2
 check "...a queued click is dropped when the workspace changed meanwhile" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
-wt sdReset "sleep 5" 800 300 >/dev/null; wt sdWindows "$open2" >/dev/null
-wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.3
+wt sdReset "sleep 0.5" 5000 300 >/dev/null
+wt sdWindows "$(windows "$(win 0xa 2 2 '[]' 1)" "$(win 0xb 2 2 '[]' 0)" "$(win 0xc 3 3 '[]' 2)")" >/dev/null
+wt sdClick >/dev/null; wt sdWorkspace 3 >/dev/null; wt sdClick >/dev/null; sleep 1.2
+check "...a click on another workspace meanwhile runs there once the first is done" "$(sdst .minimizes)" '["0xa,0xb","0xc"]'
+# The chain's child stands in for a hung hyprctl: the deadline must stop it
+# too, not only the shell running the chain.
+wt sdReset "sleep 5.4321; true" 800 300 >/dev/null; wt sdWindows "$open2" >/dev/null
+wt sdClick >/dev/null; wt sdClick >/dev/null; sleep 1.5
 check "...a chain past its deadline is stopped and the queued click dropped (rule 20)" "$(sdst '[.restores, .queued, .busy]')" '[[],false,false]'
+check "...everything it started stopped too" "$(pgrep -f 'sleep 5.4321' | wc -l)" "0"
+
+# A settings file that's there but can't be read is a problem, not "no
+# file yet": nothing is saved over it, and it's read again once it can be.
+printf '{ "bar": { "locked": true }, "center": [{ "id": "tasks" }], "right": [{ "id": "tray" }] }\n' > "$home/.config/omarchy/transom.json"; sleep 0.6
+cp "$home/.config/omarchy/transom.json" "$dir/unreadable.json"; chmod 000 "$dir/unreadable.json"
+mv "$dir/unreadable.json" "$home/.config/omarchy/transom.json"; sleep 0.6
+check "an unreadable settings file is a problem" "$(st '.problem | test("couldn.t be read")')" "true"
+wt cursor autohide >/dev/null; wt activate >/dev/null; sleep 0.5
+chmod 644 "$home/.config/omarchy/transom.json"
+check "...and a click saves nothing over it" "$(file .bar)" '{"locked":true}'
+wt cursor autohide >/dev/null; wt activate >/dev/null; sleep 0.5
+check "readable again: the next click reads it and saves on top" "$(st .problem),$(file '[.bar.locked, .bar.autohide]')" ',[true,true]'
 
 errors=$(grep -aE 'ReferenceError|TypeError|is not defined|Cannot assign|unavailable|Failed to load|Unable to assign' "$dir/log.txt" | grep -v qmlscanner || true)
 check "no QML errors" "$errors" ""
@@ -388,11 +407,16 @@ wt focus 0xabc >/dev/null; sleep 0.4
 check "Move pointer to window on: Hyprland's own behaviour" "$(grep -c 'address:0xabc' "$dir/calls.txt"),$(grep -c 'no_warps' "$dir/calls.txt")" "1,0"
 
 # The widget dragged off the top bar: the bar menu's "Top-bar icon" puts it
-# back, through Omarchy's own command, and only when it isn't on a bar.
+# back, through Omarchy's own command, and only when it isn't on a bar. A
+# taskbar saved as hidden before the widget went stays shown (the click came
+# from it).
+wt hideBar >/dev/null; sleep 0.4
+check "(hidden and saved, the widget on the bar)" "$(file .bar.visible)" "false"
 wt widget false >/dev/null; wt layout false >/dev/null; sleep 1.3
 : > "$dir/calls.txt"
 wt setIcon true >/dev/null; sleep 0.4
 check "the widget gone: Top-bar icon asks Omarchy to put it back" "$(grep -c '^omarchy-shell shell putBarWidget io.github.cwilliams5.transom' "$dir/calls.txt")" "1"
+check "...and the taskbar's saved hidden is cleared, so it stays" "$(file .bar.visible)" "null"
 wt layout true >/dev/null; wt widget true >/dev/null; sleep 0.6
 : > "$dir/calls.txt"
 wt setIcon true >/dev/null; sleep 0.4

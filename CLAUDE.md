@@ -172,6 +172,8 @@ tests/mutate.js       plants tests/mutations.json one at a time; every
 dev/                  vclick.py (scripted clicks/drags), clicklog.py
 media/                README screenshots and GIFs
 branding/             logo, lockups, alternatives, BRANDING.md, build.py
+LICENSE, NOTICE       MIT; NOTICE carries Omarchy's MIT notice for the parts
+                      adapted from it (keep its file list current)
 ```
 
 ## Rules that must not be broken (and why)
@@ -274,15 +276,22 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     the values back. Hyprland runs a chunk start to finish, so nothing else
     sees the change (Latch does the same). `minimize --keep-pointer` does it
     for the bar's minimizes; Super+M (no flag) keeps Hyprland's behaviour.
-    Verified in a nested Hyprland, 2026-11-24. One chunk per action also
-    means its steps can't interleave with another action's.
+    Saving and setting are guarded too: if Hyprland ever drops or renames
+    one of those options, the steps still run and nothing stays switched
+    off (unguarded, every action stopped, or `warp_on_change_workspace`
+    stayed 0). Verified in a nested Hyprland, 2026-11-24; the chunks also
+    run in Lua against a stand-in API in `tests/scripts.test.sh`. A
+    `dispatch` action's steps can't interleave with another action's;
+    `minimize`'s tag dispatches run before its chunk.
 18. **Strings in `hyprctl` Lua dispatches are only Hyprland's own values**
     (window addresses, workspace ids). The marketplace reviewer blocks
     untrusted text reaching Hyprland's Lua. `Service.target()` accepts only
     `0x` + hex. Quote shell arguments with `Util.shellQuote`.
 19. **Never save over a settings file Transom couldn't fully read.**
     `Settings.readLayout` reports invalid JSON, a section that isn't a
-    list, entries without an id; while any is open (`settingsError`)
+    list, entries without an id, and the FileView a file that's there but
+    can't be read (only "file not found" means no settings yet, R3); while
+    any is open (`settingsError`)
     `saveLayout` refuses, the bar menu and the dropdown say so, and one
     notification is sent (once the problem has lasted half a second, so an
     editor's in-place save doesn't trigger it; again after one clears).
@@ -302,7 +311,13 @@ branding/             logo, lockups, alternatives, BRANDING.md, build.py
     needs a fresh view from the hover, an "after" view that answers within
     1.5 s, and neither may have failed, or it does nothing (R1-M3, R2-M2,
     R2-L6: a hung app once made a click land a minute late, then launch a
-    second copy).
+    second copy). Every `hyprctl` call has a deadline of its own (`timeout 1`
+    or `2`, in the scripts, `Service.dispatch` and the thumbnail check), so
+    nothing outlives a shell that killed only its direct child. Show
+    desktop's chain runs under `timeout`, which ends everything the chain
+    started, not just its shell (R3: a QML watchdog that set `running =
+    false` signalled bash only). Two tray icons with the same id: `failed`,
+    rather than a guess that could bring another app's window forward.
 21. **Unreleased work stays on a branch.** `omarchy plugin update` pulls
     main, so main is what every user runs, marketplace verification or not
     (R1-M4).
@@ -426,6 +441,12 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
   its bar on the bottom edge too; Transom always takes the bottom, so the
   two stack there (R1-M5, a known limit; following Omarchy's bar to the
   other edge would need every popup to open downward).
+- **A Quickshell Process that can't start sends no `exited`**, and setting
+  `running = false` signals only its direct child: give a helper a deadline
+  of its own (`timeout`, which signals its whole process group) and a
+  backstop timer.
+- **`qs ipc call` splits an argument at its commas** (the widget harness
+  passes JSON base64-encoded).
 - **FileView** (Quickshell 0.3.2):
   - sends `saved` or `saveFailed` after `setText`, and nothing for text
     that's unchanged;
@@ -434,6 +455,8 @@ Tested with Omarchy 4.5.0-3, Hyprland 0.56.2, Quickshell 0.3.2, on a
     afresh (`reattachUserFile`);
   - `blockLoading` doesn't make `reload()` wait; `blockAllReads` makes
     `text()` wait for the read.
+  - `loadFailed(error)` comes for a missing file and an unreadable one
+    alike: tell them apart with `FileViewError.FileNotFound`.
 - **Omarchy's `Dropdown` assigns its own `value` on a pick**, which breaks
   a binding on it: re-bind in `onChanged` (R2-M3). `PanelSlider` emits
   `released` on every wheel event, so debounce saves (R2-L8).
@@ -559,6 +582,8 @@ The README's "Built on" section should be made from this list.
 - Quickshell: the shell toolkit (layer-shell windows, Hyprland and
   SystemTray services, ScreencopyView for thumbnails) (https://quickshell.org)
 - Hyprland: the compositor, its IPC and window rules (https://hyprland.org)
+- (The parts copied or adapted from Omarchy keep its MIT notice in
+  `NOTICE`, which a marketplace reviewer asks for on reused Omarchy code.)
 - Windows' taskbar: the model for the behavior and the wording of the menus
   ("Lock the taskbar", "Automatically hide the taskbar", "Combine taskbar
   buttons", show desktop)

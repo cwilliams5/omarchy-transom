@@ -62,6 +62,9 @@ Item {
   // When the active window last changed, for activeClick (a window focused
   // on the pointer's way down to the bar isn't minimized by that click).
   property double activeSince: 0
+  // The activeSince of the click activeClick last held back: it holds back
+  // one click only (TasksModel.activeClickMinimizes).
+  property double activeClickSpentFor: 0
   Connections {
     target: Hyprland
     function onActiveToplevelChanged() { taskbar.activeSince = Date.now() }
@@ -317,8 +320,10 @@ Item {
     } else if (!entry.toplevel.activated) {
       taskbar.focusWindow(entry)
     } else if (TasksModel.activeClickMinimizes(taskbar.cfg.activeClick, taskbar.activeSince,
-        taskbar.panel ? taskbar.panel.pointerEnteredAt : 0)) {
+        taskbar.panel ? taskbar.panel.pointerEnteredAt : 0, taskbar.activeClickSpentFor)) {
       taskbar.minimizeWindow(entry)
+    } else {
+      taskbar.activeClickSpentFor = taskbar.activeSince
     }
   }
 

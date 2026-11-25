@@ -184,7 +184,7 @@ Each entry is `{ "id": "<widget>", "enabled": false?, …settings }`. The
 | `visible` | `true` | Show the taskbar. `false` hides it on every screen and gives windows the space back, but only while Transom's top-bar icon is on the bar (its switch is the way back). See "Top-bar widget". |
 | `topBarIcon` | `true` | Show the top-bar widget's icon. `false` leaves the widget on the bar taking no room, so Transom keeps running. Never together with a hidden taskbar: hiding the icon shows the taskbar. |
 | `locked` | `false` | "Lock the taskbar": nothing on the bar can be dragged (widgets, tray icons, window buttons). |
-| `pointerToWindow` | `false` | Whether the bar's clicks move the pointer to the window they bring forward (Hyprland's habit). Off, as on Windows: the pointer stays on the bar. Only the bar's own clicks: your Hyprland setting (`cursor:no_warps`) is switched for that one action and put back, so keyboard focus and everything else behave as before. |
+| `pointerToWindow` | `false` | Whether the bar's clicks move the pointer to the window they bring forward (Hyprland's habit). Off, as on Windows: the pointer stays on the bar. Only the bar's own clicks: your Hyprland settings (`cursor:no_warps`, `cursor:warp_on_change_workspace`) are switched for that one action and put back. Keyboard focus goes to the window as before, but on workspaces where focus follows the mouse (Omarchy's tiled ones), moving the pointer up from the bar focuses whatever window it crosses: turn this on if you'd rather the pointer landed in the window. |
 | `iconStyle` | `"color"` | App icons (the tray and quick launch): `"color"` as they are, `"mono"` in grays, `"themed"` in shades of a theme color (`iconTint`), so they change with the theme. See "Icon styles". |
 | `windowIconStyle` | `"color"` | Window icons (the taskbar buttons), the same three styles. The focused window's button keeps its color unless `iconStyleOn.activeWindow`. |
 | `iconTint` | `"accent"` | The color `"themed"` uses: the theme's `"accent"` (changes most visibly from theme to theme) or its bar `"text"` color (matches Omarchy's widget glyphs exactly) |
@@ -240,7 +240,8 @@ Toggles keep the menu open, except "Show on all displays" (it can remove
 the bar the menu is on); the last two rows close it.
 
 While `transom.json` has a problem (invalid JSON, a section that isn't a
-list, an entry without an `id`), a first row says so and opens the file:
+list, an entry without an `id`, a file that's there but can't be read), a
+first row says so and opens the file:
 nothing is saved over a file Transom couldn't fully read, so your edits
 are safe. A notification says what's wrong, once.
 
@@ -338,7 +339,7 @@ by `Settings.js`.
 | `minTextWidth` | `90` | Narrower than this, buttons go icon-only (0–600) |
 | `windows` | `"workspace"` | `"workspace"`: this workspace's windows plus those minimized from it. `"monitor"`: every workspace on this screen. `"all"`: every window. |
 | `minimized` | `"dimmed"` | `"dimmed"`, `"normal"`, `"hidden"` |
-| `activeClick` | `"minimize"` | Clicking the active window: `"minimize"` (as on Windows) or `"nothing"`. A window that became active less than a second before the pointer reached the bar isn't minimized by that click: with focus following the mouse (Omarchy's tiled workspaces), the pointer focuses the window it passes on its way down. |
+| `activeClick` | `"minimize"` | Clicking the active window: `"minimize"` (as on Windows) or `"nothing"`. A window that became active less than a second before the pointer reached the bar isn't minimized by that click: with focus following the mouse (Omarchy's tiled workspaces), the pointer focuses the window it passes on its way down. The next click does. Transom 0.1.0 wrote `"nothing"` into the settings of anyone who changed a setting: tick the row in the bar menu to switch it on. |
 | `middleClick` | `"close"` | `"close"`, `"nothing"` |
 | `tooltip` | `true` | Full title on hover, when it's cut off or hidden |
 | `tooltipDelay` | `600` | ms of hovering before the tooltip shows (0–5000) |
@@ -478,8 +479,10 @@ button. The process's own windows come first, and a child process's only
 when it has none (Steam draws its windows from a child; an app that starts
 other apps doesn't bring those forward). Then a window whose class contains
 the icon's name (`chrome` finds `google-chrome`), then the most recently
-used. With only web apps open,
-Chrome counts as having no window, so the click starts it. Run the script by
+used. With only web apps open, Chrome counts as having no window, so the
+click starts it. If two apps register the same tray id (very old Electron
+apps all used Chrome's), Transom can't tell which one owns the icon and
+leaves the click to the app. Run the script by
 hand to see what a click would do. To pick the "before" view, the tray runs
 it when the pointer reaches the icon, so the app's own click isn't delayed.
 
@@ -764,7 +767,11 @@ their id in a section (see "Omarchy's own widgets").
   `fullscreen` stays 0. Keep `isMaximized` meaning real maximized
   (`fullscreen == 1`); other windows only need the plain raise. Re-test on
   Hyprland 0.57.2 or later, which may fix it, then turn the option off and
-  remove the workaround.
+  remove the workaround. Re-checked 2026-11-24 in a nested Hyprland with the
+  steps run as one Lua chunk: still works. One rough edge while the bug
+  lasts: a maximized window that's already active but drawn under floating
+  ones is minimized by a click on its button (`activeClick`), like any
+  active window; a second click brings it back on top.
 - **App tray menus** are drawn by us. Qt's native menus can't open in
   Omarchy's shell (it isn't started in QApplication mode), as Omarchy's own
   tray notes.
@@ -840,4 +847,5 @@ their windows.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). A few parts are adapted from Omarchy and keep
+its MIT notice: see [NOTICE](NOTICE).

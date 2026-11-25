@@ -742,6 +742,19 @@ test("icon sources: names, paths and ~ paths resolve locally", () => {
   assert.strictEqual(I.resolve("", fakeIconPath, "/h"), "")
 })
 
+test("icon sources: an app's menu icon is never a file path (a pipe would hang the read)", () => {
+  assert.strictEqual(I.appIcon("document-save", fakeIconPath), "image://icon/document-save")
+  assert.strictEqual(I.appIcon("image://icon/document-save", fakeIconPath), "image://icon/document-save")
+  assert.strictEqual(I.appIcon("image://icon/app?path=/usr/share/app/icons", fakeIconPath), "image://icon/app?path=/usr/share/app/icons")
+  assert.strictEqual(I.appIcon("image://qsimage/1/2", fakeIconPath), "image://qsimage/1/2")
+  assert.strictEqual(I.appIcon("/run/user/1000/a-pipe", fakeIconPath), "")
+  assert.strictEqual(I.appIcon("file:///run/user/1000/a-pipe", fakeIconPath), "")
+  assert.strictEqual(I.appIcon("image://icon//run/user/1000/a-pipe", fakeIconPath), "")
+  assert.strictEqual(I.appIcon("~/a-pipe", fakeIconPath), "")
+  assert.strictEqual(I.appIcon("https://example.com/x.png", fakeIconPath), "")
+  assert.strictEqual(I.appIcon("", fakeIconPath), "")
+})
+
 // ------------------------------------------------------- top-bar widget
 
 test("top-bar widget: found in Omarchy's bar layout as an id or an entry", () => {
@@ -1033,12 +1046,15 @@ test("a click on the active window minimizes it, Windows-style, unless the point
   assert.ok(M.activeClickMinimizes("minimize", t + 2000, t), "became active after reaching the bar (a key, a new window)")
   assert.ok(M.activeClickMinimizes("minimize", 0, 0), "nothing known: minimizes")
   assert.ok(!M.activeClickMinimizes("nothing", t - 5000, t), "activeClick: nothing")
+  assert.ok(M.activeClickMinimizes("minimize", t - 300, t, t - 300), "the guard held back one click already: the next one minimizes")
+  assert.ok(!M.activeClickMinimizes("minimize", t - 300, t, t - 9000), "...but not for a window focused since")
+  assert.ok(!M.activeClickMinimizes("nothing", t - 300, t, t - 300), "...and never with activeClick: nothing")
 })
 
 test("bar clicks keep the pointer where it is, as Latch does: off for exactly those steps, then the user's value back", () => {
   const steps = ['hl.dsp.focus({ window = "address:0x1" })', 'hl.dsp.window.alter_zorder({ mode = "top", window = "address:0x1" })']
   const kept = M.dispatchChunk(steps, true)
-  const save = kept.indexOf('local w = hl.get_config("cursor.no_warps")')
+  const save = kept.indexOf('hl.get_config("cursor.no_warps")')
   const off = kept.indexOf("no_warps = true, warp_on_change_workspace = 0")
   const first = kept.indexOf(steps[0])
   const last = kept.indexOf(steps[1])

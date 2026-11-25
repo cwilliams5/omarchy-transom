@@ -14,20 +14,24 @@
 # the move and the focus run as one Lua chunk inside Hyprland with its
 # pointer moves off just for them, so the pointer stays where the user
 # clicked. Without it (Super+M) Hyprland's own settings apply.
+# Every hyprctl call has a deadline: a Hyprland that doesn't answer mustn't
+# leave this running (CLAUDE.md rule 20).
+hc() { timeout 2 hyprctl "$@"; }
+
 KEEP_POINTER=0
 if [[ ${1:-} == --keep-pointer ]]; then
   KEEP_POINTER=1
   shift
 fi
 
-ACTIVE=$(hyprctl activewindow -j | jq -r '.address // empty')
+ACTIVE=$(hc activewindow -j | jq -r '.address // empty')
 if [[ -n ${1:-} ]]; then
   ADDRESS=$1
   [[ $ADDRESS == 0x* ]] || ADDRESS="0x$ADDRESS"
   [[ $ADDRESS =~ ^0x[0-9a-fA-F]+$ ]] || exit 1
-  WORKSPACE=$(hyprctl clients -j | jq -r --arg address "$ADDRESS" 'first(.[] | select(.address == $address) | .workspace.id) // empty')
+  WORKSPACE=$(hc clients -j | jq -r --arg address "$ADDRESS" 'first(.[] | select(.address == $address) | .workspace.id) // empty')
 else
-  read -r ADDRESS WORKSPACE < <(hyprctl activewindow -j | jq -r '"\(.address // "") \(.workspace.id // "")"')
+  read -r ADDRESS WORKSPACE < <(hc activewindow -j | jq -r '"\(.address // "") \(.workspace.id // "")"')
 fi
 
 # Only windows on regular workspaces (positive ids): not already minimized,
@@ -36,14 +40,14 @@ fi
 
 remember_minimized_from() {
   local address=$1 workspace=$2 clients tag
-  if clients=$(hyprctl clients -j); then
+  if clients=$(hc clients -j); then
     while read -r tag; do
       [[ $tag =~ ^omarchy-minimized-from-[0-9]+$ && $tag != "omarchy-minimized-from-$workspace" ]] || continue
-      hyprctl dispatch "hl.dsp.window.tag({ tag = \"-$tag\", window = \"address:$address\" })" >/dev/null
+      hc dispatch "hl.dsp.window.tag({ tag = \"-$tag\", window = \"address:$address\" })" >/dev/null
     done < <(jq -r --arg address "$address" '.[] | select(.address == $address) | (.tags // [])[]' <<<"$clients")
   fi
   # hyprctl exits 0 even when Hyprland refuses, so read its reply.
-  [[ $(hyprctl dispatch "hl.dsp.window.tag({ tag = \"+omarchy-minimized-from-$workspace\", window = \"address:$address\" })") == ok ]]
+  [[ $(hc dispatch "hl.dsp.window.tag({ tag = \"+omarchy-minimized-from-$workspace\", window = \"address:$address\" })") == ok ]]
 }
 
 # Without its tag a minimized window has no home workspace on the taskbar,
@@ -59,12 +63,16 @@ focus=""
 [[ $ADDRESS == "$ACTIVE" ]] && focus="hl.dsp.focus({ workspace = \"$WORKSPACE\" })"
 
 if (( KEEP_POINTER )); then
-  # The same chunk as Transom's TasksModel.dispatchChunk.
+  # The same chunk as Transom's TasksModel.dispatchChunk: the steps run even
+  # if saving the pointer settings fails, and those are put back only if
+  # they were saved.
   steps="pcall(function() hl.dispatch($move) end)"
   [[ -n $focus ]] && steps+="; pcall(function() hl.dispatch($focus) end)"
-  hyprctl repl "local w = hl.get_config(\"cursor.no_warps\"); local c = hl.get_config(\"cursor.warp_on_change_workspace\"); hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }); $steps; hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } })" >/dev/null
+  save='local ok, w, c = pcall(function() return hl.get_config("cursor.no_warps"), hl.get_config("cursor.warp_on_change_workspace") end); local saved = ok and w ~= nil and c ~= nil; if saved then pcall(function() hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }) end) end'
+  restore='if saved then pcall(function() hl.config({ cursor = { no_warps = w, warp_on_change_workspace = c } }) end) end'
+  hc repl "$save; $steps; $restore" >/dev/null
 else
-  hyprctl dispatch "$move" >/dev/null
-  [[ -n $focus ]] && hyprctl dispatch "$focus" >/dev/null
+  hc dispatch "$move" >/dev/null
+  [[ -n $focus ]] && hc dispatch "$focus" >/dev/null
 fi
 exit 0

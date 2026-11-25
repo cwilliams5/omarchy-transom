@@ -11,6 +11,12 @@
 //                     image:// (Quickshell's icon providers), file:// (a
 //                     path) or qrc:. http, https and every other scheme
 //                     are refused.
+//   appIcon(value)    an icon an app names for its own menu entries: a
+//                     theme name or a Quickshell image:// provider, never
+//                     a file path (an app could name a pipe, and a read
+//                     from one never returns: a marketplace reviewer's
+//                     finding on another plugin). Images showing these
+//                     load asynchronously too (ui/MenuItemRow.qml).
 
 function themeName(value) {
   var text = String(value || "").trim()
@@ -34,6 +40,19 @@ function resolve(value, iconPath, home) {
   return name && iconPath ? String(iconPath(name) || "") : ""
 }
 
+// value: what Quickshell gives for a tray menu entry's icon (an image://
+// URL, or an icon name). iconPath(name): the theme's URL for a name.
+function appIcon(value, iconPath) {
+  var text = String(value || "").trim()
+  if (!text) return ""
+  if (/^image:\/\//i.test(text)) {
+    var icon = /^image:\/\/icon\/([^?]*)/i.exec(text)
+    return icon && icon[1].indexOf("/") >= 0 ? "" : text
+  }
+  var name = themeName(text)
+  return name && iconPath ? String(iconPath(name) || "") : ""
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { themeName: themeName, isLocalUrl: isLocalUrl, resolve: resolve }
+  module.exports = { themeName: themeName, isLocalUrl: isLocalUrl, resolve: resolve, appIcon: appIcon }
 }

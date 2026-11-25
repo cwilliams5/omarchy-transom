@@ -319,7 +319,15 @@ Item {
   // taskbar too, so one of the two is always there to bring the other back.
   // Showing it when the widget isn't on any bar (dragged off) puts it back.
   function setTopBarIconShown(on) {
-    if (on && !root.widgetOnBar) root.putWidgetOnTopBar()
+    if (on && !root.widgetOnBar) {
+      // Put back from the taskbar's own menu: the taskbar stays, even if
+      // it was saved as hidden before the widget went (a saved "hidden"
+      // otherwise applies again when the widget is back, R2-L7, and the
+      // bar just clicked would vanish).
+      root.putWidgetOnTopBar()
+      root.updateWidget("bar", { topBarIcon: undefined, visible: undefined })
+      return
+    }
     if (on) root.updateWidget("bar", { topBarIcon: undefined })
     else root.updateWidget("bar", { topBarIcon: false, visible: undefined })
   }
@@ -539,8 +547,22 @@ Item {
       root.userConfigExists = true
       root.applyUserText(text())
     }
-    onLoadFailed: {
+    onLoadFailed: function(error) {
       if (root.reattaching) return
+      // Only a file that isn't there means "no settings yet". One that is
+      // there but can't be read (permissions, not a file) is a problem like
+      // invalid JSON: nothing is saved over it (rule 19), and until it's
+      // readable the bar runs on what it had, or the safe defaults.
+      if (error !== FileViewError.FileNotFound) {
+        root.userConfigExists = true
+        // Forgotten, so the next click's re-read (refreshFromDisk) applies
+        // the file once it's readable again, even unchanged.
+        root.layoutText = ""
+        root.diskText = ""
+        root.settingsError = "it couldn't be read (" + FileViewError.toString(error) + ")"
+        if (!root.readGood) root.layout = Settings.safeLayout(root.defaultLayout, root.sections)
+        return
+      }
       root.userConfigExists = false
       root.layoutText = ""
       root.diskText = ""
@@ -710,8 +732,10 @@ Item {
   // logged to the shell log (see README, Developing).
   function dispatch(steps, after) {
     console.log("transom: " + steps.concat(after || []).join(" ; "))
-    var command = "hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(steps, root.keepPointer))
-    if (after && after.length > 0) command += "; sleep 0.4; hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(after, false))
+    // Each hyprctl under a deadline: a Hyprland that doesn't answer mustn't
+    // leave these running (CLAUDE.md rule 20).
+    var command = "timeout 2 hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(steps, root.keepPointer))
+    if (after && after.length > 0) command += "; sleep 0.4; timeout 2 hyprctl repl " + Util.shellQuote(TasksModel.dispatchChunk(after, false))
     Util.execDetached(command)
   }
 

@@ -60,6 +60,65 @@ then release 0.2.0 through the ship-update skill.
   tray icon ids are app-chosen and often match none. Tested (scripts.test.sh,
   two mutations).
 
+### R3. Pre-release review (2026-11-24, at 244160a)
+
+The release runbook's review of the delta since the verified commit: a
+fresh correctness reviewer on the commits after R2, and a "predict the
+marketplace reviewer" agent on everything since `eb20a13` (with the
+reviewer's comment history). Each finding checked in the code first;
+Cody chose what to fix.
+
+- [x] **R3-1 The active-click guard held back every click** until the
+  pointer left the bar, not just the first. Fix: it holds back one
+  (`activeClickMinimizes`' spentFor). Tested (node; a mutation).
+- [x] **R3-2 Show desktop:** a click on another workspace during a chain
+  was swallowed; the deadline stopped only the chain's shell, not a hung
+  `minimize` or `hyprctl` under it. Fix: the queued click remembers its
+  workspace; the chain runs under `timeout`, with a backstop for a chain
+  that never reports back. Tested (harness; mutations).
+- [x] **R3-3 The pointer chunk's save and set weren't guarded:** with a
+  renamed option every action stopped, or `warp_on_change_workspace` was
+  left at 0 (shown in a nested Hyprland). Fix: guarded, steps run either
+  way. Tested in Lua against a stand-in API (both chunks; mutations).
+- [x] **R3-4 "Top-bar icon" from the bar menu could hide the bar just
+  clicked** (a saved "hidden" applying again with the widget back). Fix:
+  putting the widget back clears it. Tested (harness; a mutation).
+- [x] **R3-5 An unreadable transom.json counted as "no file"**, so the
+  next click wrote the defaults over it (predicted reviewer Medium,
+  their #15522). Fix: only FileNotFound means no file. Tested (harness:
+  chmod 000; a mutation).
+- [x] **R3-6 Tray menu icons loaded synchronously from any path an app
+  named** (a pipe would stall the shell; their #13977, Medium). Fix:
+  `IconSource.appIcon` (theme names and Quickshell's providers, never a
+  path) and asynchronous loading. Tested (node; a mutation).
+- [x] **R3-7 hyprctl without deadlines** in `minimize`, `tray-window`,
+  `Service.dispatch` and the thumbnail check (their repeated Lows on
+  teardown and watchdogs). Fix: each call under `timeout`; the thumbnail
+  check fails closed if its check never reports back. Tested for the
+  scripts (a hung stand-in hyprctl); the QML ones by reading.
+- [x] **R3-8 Omarchy's copyright notice** for the code adapted from it
+  (their Low on another taskbar's copy of the dock logic, #14047). Fix:
+  `NOTICE` (LICENSE stays plain MIT so GitHub still recognises it).
+- [x] **R3-9 Docs:** the README's pointer row named one setting of two and
+  didn't mention focus following the mouse; CLAUDE.md rule 17 claimed more
+  than `minimize` does.
+- [x] **R3-10 Two tray icons with the same id** brought forward the first
+  one's app. Fix: `failed` then (Cody, 2026-11-24). Checked live: current
+  Chromium-based apps name their ids after the app (`chrome_status_icon_1`,
+  `Bitwarden_status_icon_1`, `Claude_status_icon_1`), so this needs a
+  very old Electron app next to Chrome. Tested (scripts; a mutation).
+
+Checked and not an issue: the maximized raise workaround run as one chunk
+(R3 reviewer's worry): still raises the maximized window over floating ones
+in a nested Hyprland, 2026-11-24.
+
+Kept as known limits (Cody, 2026-11-24): with Hyprland 0.56.2's stacking
+bug, a click on an active maximized window drawn under floating ones
+minimizes it (a second click brings it back on top; README, "Maximized
+windows and stacking"); `activeClick` stays "nothing" for upgraders whose
+file 0.1.0 wrote it into (the release notes and README say how to turn it
+on; no write nobody clicked for).
+
 ### R1. First strict review (2026-11-23, at f5c2fbf): fix list
 
 Two fresh reviewers (safety and correctness; fit, cost and honesty), with

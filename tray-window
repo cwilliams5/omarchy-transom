@@ -27,8 +27,8 @@
 # reliably, so this goes by process instead.
 #
 # Every busctl call gives up after a second (sd-bus's default is 25 s, and
-# one hung app would stall every tray click), and the tray runs this under
-# an overall `timeout` too. Bus names come from apps: anything not shaped
+# one hung app would stall every tray click), every hyprctl call after one
+# too, and the tray runs this under an overall `timeout` as well. Bus names come from apps: anything not shaped
 # like one is skipped, and "--" keeps the rest from reading as options.
 
 set -u
@@ -42,6 +42,11 @@ none='{"failed": true, "pid": null, "menuOnly": false, "window": null, "minimize
 items=$(bus_call get-property org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
   org.kde.StatusNotifierWatcher RegisteredStatusNotifierItems | jq -r '.data[]?')
 
+# The icons registered with that id. Two apps can pick the same one: then
+# which app owns the icon clicked is a guess, and a wrong guess brings
+# another app's window forward, so the answer is "failed" (the tray does
+# nothing beyond the app's own click).
+found=()
 for item in $items; do
   # ":1.52/StatusNotifierItem", or a bare bus name with the default path.
   bus=${item%%/*}
@@ -50,42 +55,50 @@ for item in $items; do
   [[ $bus =~ ^(:|[A-Za-z_])[A-Za-z0-9_.:-]*$ && $path =~ ^/[A-Za-z0-9_/]*$ ]] || continue
 
   id=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem Id | jq -r '.data // empty')
-  [[ -n $want && $id == "$want" ]] || continue
-
-  pid=$(bus_call call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus \
-    GetConnectionUnixProcessID s "$bus" | jq -r '.data[0] // empty')
-  is_menu=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem ItemIsMenu | jq -r '.data // false')
-  menu_path=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem Menu | jq -r '.data // empty')
-  menu_only=false
-  [[ $is_menu == true || $path == */ayatana/* || $menu_path == */ayatana/* || $menu_path == */NotificationItem/* ]] && menu_only=true
-
-  if [[ ! $pid =~ ^[0-9]+$ ]]; then
-    jq -cn --argjson menuOnly "$menu_only" '{failed: true, pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
-    exit 0
-  fi
-
-  # Every process's parent, to find windows of the app's child processes.
-  parents=$(ps -eo pid=,ppid= | awk '{printf "\"%s\":%s,", $1, $2}')
-  active=$(hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty')
-  hyprctl clients -j | jq -c --argjson owner "$pid" --argjson menuOnly "$menu_only" --arg active "$active" --arg name "$name" --argjson parents "{${parents%,}}" '
-    def descends($p): if $p == $owner then true
-      elif ($p <= 1) or ($parents[($p|tostring)] == null) then false
-      else descends($parents[($p|tostring)]) end;
-    [ .[] | select(.mapped != false and .hidden != true)
-          | select((.workspace.name | startswith("special:") | not) or .workspace.name == "special:minimized")
-          | select(descends(.pid)) ]
-    | sort_by(.focusHistoryID) as $mine
-    | def webapp: (.class // "") | test("^(chrome|chromium|brave|msedge|vivaldi)-.*__"; "i");
-      def named: $name != "" and ((.class // "") | ascii_downcase | contains($name | ascii_downcase));
-      def own: .pid == $owner;
-      ($mine | map(select(webapp | not)) | sort_by([(if own then 0 else 1 end), (if named then 0 else 1 end), .focusHistoryID]) | .[0]) as $w
-    | {pid: $owner, menuOnly: $menuOnly,
-       window: ($w.address // null),
-       minimized: (($w.workspace.name // "") == "special:minimized"),
-       minimizedFrom: ([($w.tags // [])[] | capture("^omarchy-minimized-from-(?<n>[0-9]+)")? | .n | tonumber][0] // null),
-       windows: [$mine[].address],
-       focused: ([$mine[].address | select(. == $active)][0] // null)}'
-  exit 0
+  [[ -n $want && $id == "$want" ]] && found+=("$bus $path")
 done
+if (( ${#found[@]} != 1 )); then
+  echo "$none"
+  exit 0
+fi
+read -r bus path <<<"${found[0]}"
 
-echo "$none"
+pid=$(bus_call call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus \
+  GetConnectionUnixProcessID s "$bus" | jq -r '.data[0] // empty')
+is_menu=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem ItemIsMenu | jq -r '.data // false')
+menu_path=$(bus_call get-property "$bus" "$path" org.kde.StatusNotifierItem Menu | jq -r '.data // empty')
+menu_only=false
+[[ $is_menu == true || $path == */ayatana/* || $menu_path == */ayatana/* || $menu_path == */NotificationItem/* ]] && menu_only=true
+
+if [[ ! $pid =~ ^[0-9]+$ ]]; then
+  jq -cn --argjson menuOnly "$menu_only" '{failed: true, pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
+  exit 0
+fi
+
+# Every process's parent, to find windows of the app's child processes.
+parents=$(ps -eo pid=,ppid= | awk '{printf "\"%s\":%s,", $1, $2}')
+active=$(timeout 1 hyprctl activewindow -j 2>/dev/null | jq -r '.address // empty')
+# No window list (Hyprland didn't answer in time): "failed", as above.
+clients=$(timeout 1 hyprctl clients -j 2>/dev/null)
+if ! jq -e 'type == "array"' >/dev/null 2>&1 <<<"$clients"; then
+  jq -cn --argjson menuOnly "$menu_only" '{failed: true, pid: null, menuOnly: $menuOnly, window: null, minimized: false, windows: [], focused: null}'
+  exit 0
+fi
+jq -c --argjson owner "$pid" --argjson menuOnly "$menu_only" --arg active "$active" --arg name "$name" --argjson parents "{${parents%,}}" '
+  def descends($p): if $p == $owner then true
+    elif ($p <= 1) or ($parents[($p|tostring)] == null) then false
+    else descends($parents[($p|tostring)]) end;
+  [ .[] | select(.mapped != false and .hidden != true)
+        | select((.workspace.name | startswith("special:") | not) or .workspace.name == "special:minimized")
+        | select(descends(.pid)) ]
+  | sort_by(.focusHistoryID) as $mine
+  | def webapp: (.class // "") | test("^(chrome|chromium|brave|msedge|vivaldi)-.*__"; "i");
+    def named: $name != "" and ((.class // "") | ascii_downcase | contains($name | ascii_downcase));
+    def own: .pid == $owner;
+    ($mine | map(select(webapp | not)) | sort_by([(if own then 0 else 1 end), (if named then 0 else 1 end), .focusHistoryID]) | .[0]) as $w
+  | {pid: $owner, menuOnly: $menuOnly,
+     window: ($w.address // null),
+     minimized: (($w.workspace.name // "") == "special:minimized"),
+     minimizedFrom: ([($w.tags // [])[] | capture("^omarchy-minimized-from-(?<n>[0-9]+)")? | .n | tonumber][0] // null),
+     windows: [$mine[].address],
+     focused: ([$mine[].address | select(. == $active)][0] // null)}' <<<"$clients"

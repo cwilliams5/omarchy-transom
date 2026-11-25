@@ -501,8 +501,9 @@ Item {
           interactive: modelData.enabled
           checkColumn: tray.checkColumn
           checked: modelData.checkState === Qt.Checked
-          // The app supplies its menu's icons: local images only (IconSource.js).
-          iconSource: IconSource.resolve(modelData.icon, function(iconName) { return Quickshell.iconPath(iconName, true) }, Quickshell.env("HOME"))
+          // The app supplies its menu's icons: a theme name or Quickshell's
+          // own image providers, never a path (IconSource.appIcon).
+          iconSource: IconSource.appIcon(modelData.icon, function(iconName) { return Quickshell.iconPath(iconName, true) })
           hasChildren: modelData.hasChildren
           onTriggered: tray.entryClicked(modelData, label)
         }

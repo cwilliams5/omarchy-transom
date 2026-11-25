@@ -60,7 +60,9 @@ Rectangle {
     height: Style.space(16)
     sourceSize: Qt.size(width * 2, height * 2)
     fillMode: Image.PreserveAspectFit
-    // Local images only: a menu's icon can come from an app (IconSource.js).
+    // Off the UI thread: a menu's icon can come from an app, and a slow
+    // read must not stall the shell. Local images only (IconSource.js).
+    asynchronous: true
     source: IconSource.isLocalUrl(row.iconSource) ? row.iconSource : ""
   }
 

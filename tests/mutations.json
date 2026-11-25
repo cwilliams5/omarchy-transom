@@ -205,8 +205,8 @@
   {
     "name": "minimize-always-focuses",
     "file": "minimize",
-    "find": "if [[ $ADDRESS == \"$ACTIVE\" ]]; then",
-    "replace": "if true; then",
+    "find": "[[ $ADDRESS == \"$ACTIVE\" ]] && focus=",
+    "replace": "focus=",
     "why": "R1-M6: minimizing another window yanks the screen"
   },
   {
@@ -520,9 +520,9 @@
   {
     "name": "show-desktop-no-deadline",
     "file": "widgets/ShowDesktop.qml",
-    "find": "      deadline.restart()\n",
-    "replace": "",
-    "why": "a hung minimize chain leaves show desktop busy for good"
+    "find": "chain.command = [\"timeout\", \"-k\", \"1\", String(root.chainDeadlineMs / 1000), \"bash\", \"-c\", root.bar.minimizeCommand(open)]",
+    "replace": "chain.command = [\"bash\", \"-c\", root.bar.minimizeCommand(open)]",
+    "why": "a hung minimize chain (and what it started) keeps running past its deadline"
   },
   {
     "name": "show-desktop-workspace-ignored",
@@ -551,5 +551,75 @@
     "find": "          | select(descends(.pid)) ]",
     "replace": "          | select(.pid == $owner) ]",
     "why": "an app drawing its windows from a child process (Steam) gets none"
+  },
+  {
+    "name": "r3-active-click-guard-sticks",
+    "file": "TasksModel.js",
+    "find": "  if (activeSince > 0 && activeSince === spentFor) return true\n",
+    "replace": "",
+    "why": "R3-1: every click on the active window stays held back until the pointer leaves the bar"
+  },
+  {
+    "name": "r3-show-desktop-other-workspace",
+    "file": "widgets/ShowDesktop.qml",
+    "find": "      if (root.queued && root.queuedWorkspace === root.workspaceId) {",
+    "replace": "      if (root.queued) {",
+    "why": "R3-2: a click on another workspace during a chain is swallowed"
+  },
+  {
+    "name": "r3-pointer-set-unguarded",
+    "file": "TasksModel.js",
+    "find": "  + \"; if saved then pcall(function() hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }) end) end\"",
+    "replace": "  + \"; hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } })\"",
+    "why": "R3-3: a renamed cursor option stops every action"
+  },
+  {
+    "name": "r3-minimize-pointer-unguarded",
+    "file": "minimize",
+    "find": "local saved = ok and w ~= nil and c ~= nil; if saved then pcall(function() hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } }) end) end'",
+    "replace": "local saved = true; hl.config({ cursor = { no_warps = true, warp_on_change_workspace = 0 } })'",
+    "why": "R3-3: minimize's chunk stops, or leaves a setting changed, with a renamed option"
+  },
+  {
+    "name": "r3-put-back-keeps-hidden",
+    "file": "Service.qml",
+    "find": "      root.updateWidget(\"bar\", { topBarIcon: undefined, visible: undefined })\n      return",
+    "replace": "      root.updateWidget(\"bar\", { topBarIcon: undefined })\n      return",
+    "why": "R3-4: putting the widget back hides the bar just clicked"
+  },
+  {
+    "name": "r3-unreadable-is-no-file",
+    "file": "Service.qml",
+    "find": "      if (error !== FileViewError.FileNotFound) {",
+    "replace": "      if (false) {",
+    "why": "R3-5: the next click writes the defaults over an unreadable settings file"
+  },
+  {
+    "name": "r3-menu-icon-paths",
+    "file": "IconSource.js",
+    "find": "    return icon && icon[1].indexOf(\"/\") >= 0 ? \"\" : text",
+    "replace": "    return text",
+    "why": "R3-6: an app's menu icon can name a pipe"
+  },
+  {
+    "name": "r3-minimize-no-deadline",
+    "file": "minimize",
+    "find": "hc() { timeout 2 hyprctl \"$@\"; }",
+    "replace": "hc() { hyprctl \"$@\"; }",
+    "why": "R3-7: a Hyprland that doesn't answer leaves minimize running"
+  },
+  {
+    "name": "r3-tray-clients-no-deadline",
+    "file": "tray-window",
+    "find": "clients=$(timeout 1 hyprctl clients -j 2>/dev/null)",
+    "replace": "clients=$(hyprctl clients -j 2>/dev/null)",
+    "why": "R3-7: a Hyprland that doesn't answer stalls tray-window"
+  },
+  {
+    "name": "r3-tray-duplicate-id",
+    "file": "tray-window",
+    "find": "if (( ${#found[@]} != 1 )); then",
+    "replace": "if (( ${#found[@]} == 0 )); then",
+    "why": "R3-10: two icons with one id: a guess that can bring another app forward"
   }
 ]

@@ -67,13 +67,24 @@ Item {
   // checks, so an answer is always filed under the window it was for.
   function ask() {
     if (!preview.address || preview.checked) return
-    if (privacy.busy) {
+    if (privacy.busy && Date.now() - privacy.startedAt < 2000) {
       askAgain.restart()
       return
     }
+    if (privacy.busy) {
+      // A check that never reported back (one that couldn't start sends no
+      // exit): no answer, so nothing is captured (CLAUDE.md rule 5).
+      privacy.running = false
+      privacy.busy = false
+      preview.unknown = true
+      preview.checked = true
+      return
+    }
     privacy.busy = true
+    privacy.startedAt = Date.now()
     privacy.asked = preview.cacheKey
-    privacy.command = ["hyprctl", "getprop", "address:" + preview.address, "no_screen_share"]
+    // Under a deadline: a Hyprland that doesn't answer mustn't leave it running.
+    privacy.command = ["timeout", "1", "hyprctl", "getprop", "address:" + preview.address, "no_screen_share"]
     privacy.running = true
   }
 
@@ -87,6 +98,7 @@ Item {
     id: privacy
     property string asked: ""
     property bool busy: false
+    property double startedAt: 0
     stdout: StdioCollector {
       onStreamFinished: {
         // Only "true" or "false" is an answer; anything else ("window not

@@ -12,11 +12,12 @@ check() { if [ "$2" = "$3" ]; then echo "ok - $1"; else echo "not ok - $1"; echo
 
 # hyprctl: the active window and clients from fixture files; dispatches
 # logged, answered "ok" unless the request contains $DISPATCH_FAILS.
+# HYPR_HANGS: "clients" never answers (sleeps past every deadline).
 cat > "$dir/bin/hyprctl" <<EOF
 #!/bin/bash
 case "\$1" in
   activewindow) cat "$dir/active.json" ;;
-  clients) cat "$dir/clients.json" ;;
+  clients) [ -n "\${HYPR_HANGS:-}" ] && sleep 5; cat "$dir/clients.json" ;;
   repl)
     echo "repl \$2" >> "$dir/dispatches.txt"; echo ok ;;
   dispatch)
@@ -25,14 +26,18 @@ case "\$1" in
 esac
 EOF
 # busctl: every call's argv logged; answers for a watcher with two items,
-# one of them registered under a name that looks like an option.
+# one of them registered under a name that looks like an option (DUP_ID:
+# a third item with the same id as the second).
 cat > "$dir/bin/busctl" <<EOF
 #!/bin/bash
 echo "\$*" >> "$dir/busctl.txt"
 args=" \$* "
 case "\$args" in
-  *" RegisteredStatusNotifierItems "*) echo '{"type":"as","data":["-Hevil.example/StatusNotifierItem",":1.5/StatusNotifierItem"]}' ;;
+  *" RegisteredStatusNotifierItems "*)
+    if [ -n "\${DUP_ID:-}" ]; then echo '{"type":"as","data":["-Hevil.example/StatusNotifierItem",":1.5/StatusNotifierItem",":1.6/StatusNotifierItem"]}'
+    else echo '{"type":"as","data":["-Hevil.example/StatusNotifierItem",":1.5/StatusNotifierItem"]}'; fi ;;
   *" :1.5 /StatusNotifierItem org.kde.StatusNotifierItem Id "*) [ -n "\${ID_FAILS:-}" ] && exit 1; echo '{"type":"s","data":"discord"}' ;;
+  *" :1.6 /StatusNotifierItem org.kde.StatusNotifierItem Id "*) echo '{"type":"s","data":"discord"}' ;;
   *" GetConnectionUnixProcessID s :1.5 "*) echo '{"type":"u","data":[4242]}' ;;
   *" ItemIsMenu "*) echo '{"type":"b","data":false}' ;;
   *" Menu "*) echo '{"type":"o","data":"/MenuBar"}' ;;
@@ -71,6 +76,45 @@ check "the tag refused: the window isn't moved (it would have no way back)" "$st
 check "a window on a special workspace isn't minimized" "$status,$(wc -l < "$dir/dispatches.txt")" "1,0"
 "$repo/minimize" '0x1" })'; status=$?
 check "an address that isn't one is refused before any dispatch" "$status,$(wc -l < "$dir/dispatches.txt")" "1,0"
+start=$(date +%s%N); HYPR_HANGS=1 "$repo/minimize" 0xb2; status=$?; took=$(( ($(date +%s%N) - start) / 1000000 ))
+check "Hyprland not answering: minimize gives up within its deadline, moving nothing" "$status,$((took < 4000)),$(wc -l < "$dir/dispatches.txt")" "1,1,0"
+
+# The pointer chunks (Transom's TasksModel.dispatchChunk and minimize's),
+# run in Lua against a stand-in Hyprland API: the steps run with the
+# pointer's moves off and the user's values come back; with an option
+# Hyprland no longer has, the steps still run and nothing is left changed.
+lua=$(command -v lua5.4 || command -v lua || true)
+if [ -n "$lua" ]; then
+  cat > "$dir/hl.lua" <<'LUA'
+local cfg = { ["cursor.no_warps"] = false, ["cursor.warp_on_change_workspace"] = 1 }
+if os.getenv("OPTION_GONE") then cfg["cursor.warp_on_change_workspace"] = nil end
+local ran = {}
+hl = {
+  get_config = function(name) return cfg[name] end,
+  config = function(t)
+    for key, value in pairs(t.cursor) do
+      if cfg["cursor." .. key] == nil then error("no such option: " .. key) end
+      cfg["cursor." .. key] = value
+    end
+  end,
+  dispatch = function(step) ran[#ran + 1] = step .. (cfg["cursor.no_warps"] and "+kept" or "") end,
+  dsp = setmetatable({}, { __index = function(_, name) return function() return name end end }),
+}
+hl.dsp.window = hl.dsp
+local chunk = assert(load(io.read("a")))
+chunk()
+print(table.concat(ran, ",") .. " " .. tostring(cfg["cursor.no_warps"]) .. " " .. tostring(cfg["cursor.warp_on_change_workspace"]))
+LUA
+  ts_chunk=$(node -e 'console.log(require(process.argv[1]).dispatchChunk(["hl.dsp.focus({ window = \"address:0x1\" })"], true))' "$repo/TasksModel.js")
+  check "the bar's chunk: the step runs with the pointer kept, then the user's values are back" "$("$lua" "$dir/hl.lua" <<<"$ts_chunk")" "focus+kept false 1"
+  check "...with an option gone: the step still runs, nothing left changed" "$(OPTION_GONE=1 "$lua" "$dir/hl.lua" <<<"$ts_chunk")" "focus false nil"
+  : > "$dir/dispatches.txt"; "$repo/minimize" --keep-pointer >/dev/null
+  mini_chunk=$(sed -n 's/^repl //p' "$dir/dispatches.txt")
+  check "minimize's chunk: the same" "$("$lua" "$dir/hl.lua" <<<"$mini_chunk")" "move+kept,focus+kept false 1"
+  check "...with an option gone: the same" "$(OPTION_GONE=1 "$lua" "$dir/hl.lua" <<<"$mini_chunk")" "move,focus false nil"
+else
+  echo "skipped - the pointer chunks in Lua (no lua installed)"
+fi
 
 # ------------------------------------------------------------- tray-window
 
@@ -85,6 +129,8 @@ check "a bus name shaped like an option is never passed on" "$(grep -c 'evil' "$
 check "the app's D-Bus call failing: \"failed\", never a plain \"nothing\" (R2-M2)" "$(ID_FAILS=1 "$repo/tray-window" discord discord | jq -c .failed)" "true"
 check "no icon id: \"failed\"" "$("$repo/tray-window" "" "" | jq -c .failed)" "true"
 check "...and the answer for a found app has no failure flag" "$(jq -c .failed <<<"$out")" "null"
+check "two icons with the app's id: \"failed\", not a guess at which app it is" "$(DUP_ID=1 "$repo/tray-window" discord discord | jq -c '[.failed, .window]')" '[true,null]'
+check "Hyprland not answering: \"failed\"" "$(HYPR_HANGS=1 "$repo/tray-window" discord discord | jq -c '[.failed, .window]')" '[true,null]'
 
 # The icon's process 4242 started 5000, another app. ps answers from a
 # fixture so the process tree is the test's.

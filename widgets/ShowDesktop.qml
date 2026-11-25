@@ -54,15 +54,18 @@ Item {
 
   // From a click that minimizes until its windows are down and their tags
   // read back (TasksModel.REFRESH_EVENTS refresh 100 ms after the moves;
-  // settleMs leaves room for that). A click meanwhile is queued, and runs
-  // then on the same workspace; a second one takes it back.
+  // settleMs leaves room for that). A click meanwhile is queued for the
+  // workspace it was clicked on, and runs then if that workspace is still
+  // the one showing; another click there takes it back.
   property bool busy: false
   property bool queued: false
-  property int busyWorkspace: -1
+  property int queuedWorkspace: -1
   property double chainStartedAt: 0
   property int settleMs: 300
-  // A minimize chain that hasn't ended by then (a hung hyprctl) is stopped,
-  // and a queued click dropped rather than run late (CLAUDE.md rule 20).
+  // The chain runs under `timeout`: past this, it and everything it started
+  // (a hung hyprctl included) are stopped, and a queued click is dropped
+  // rather than run late (CLAUDE.md rule 20). Each hyprctl in `minimize`
+  // has its own deadline as well, so nothing outlives the shell for long.
   property int chainDeadlineMs: 10000
 
   // The windows open on this workspace (not minimized), least recently
@@ -98,20 +101,26 @@ Item {
   function clicked() {
     if (!root.bar || !(root.workspaceId >= 1)) return
     if (root.busy) {
-      root.queued = !root.queued
+      if (root.queued && root.queuedWorkspace === root.workspaceId) {
+        root.queued = false
+      } else {
+        root.queued = true
+        root.queuedWorkspace = root.workspaceId
+      }
       return
     }
     var open = root.openWindows()
     var next = Object.assign({}, root.minimizedByUs)
     if (open.length > 0) {
       root.busy = true
-      root.busyWorkspace = root.workspaceId
       root.chainStartedAt = Date.now()
       console.log("transom: show desktop: minimize " + open.join(" "))
-      chain.command = ["bash", "-lc", root.bar.minimizeCommand(open)]
+      chain.command = ["timeout", "-k", "1", String(root.chainDeadlineMs / 1000), "bash", "-c", root.bar.minimizeCommand(open)]
       chain.running = true
-      deadline.interval = root.chainDeadlineMs
-      deadline.restart()
+      // A backstop for a chain that never reports back (one that couldn't
+      // start sends no exit).
+      backstop.interval = root.chainDeadlineMs + 3000
+      backstop.restart()
       next[root.workspaceId] = open
     } else {
       var back = root.stillMinimized()
@@ -125,21 +134,36 @@ Item {
 
   // The minimizes are down: wait for the tags, then run a queued click.
   function settled() {
-    deadline.stop()
-    var again = root.queued && root.workspaceId === root.busyWorkspace
+    backstop.stop()
+    var again = root.queued && root.workspaceId === root.queuedWorkspace
     root.busy = false
     root.queued = false
     if (again) root.clicked()
   }
 
+  // The chain's end: done, or stopped at its deadline (timeout's 124, or
+  // 137 once it had to kill), when a queued click is dropped.
+  function chainEnded(code) {
+    if (!root.busy) return
+    if (code === 124 || code === 137) {
+      console.warn("transom: show desktop: minimizing took over " + root.chainDeadlineMs + " ms; stopped")
+      root.giveUp()
+      return
+    }
+    console.log("transom: show desktop: minimized in " + (Date.now() - root.chainStartedAt) + " ms")
+    settle.interval = root.settleMs
+    settle.restart()
+  }
+
+  function giveUp() {
+    backstop.stop()
+    root.busy = false
+    root.queued = false
+  }
+
   Process {
     id: chain
-    onExited: {
-      if (!root.busy) return
-      console.log("transom: show desktop: minimized in " + (Date.now() - root.chainStartedAt) + " ms")
-      settle.interval = root.settleMs
-      settle.restart()
-    }
+    onExited: function(code) { root.chainEnded(code) }
   }
 
   Timer {
@@ -148,11 +172,10 @@ Item {
   }
 
   Timer {
-    id: deadline
+    id: backstop
     onTriggered: {
-      console.warn("transom: show desktop: minimizing took over " + root.chainDeadlineMs + " ms; stopped")
-      root.busy = false
-      root.queued = false
+      console.warn("transom: show desktop: the minimize chain never reported back; giving up on it")
+      root.giveUp()
       chain.running = false
     }
   }
