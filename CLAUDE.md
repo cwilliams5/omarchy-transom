@@ -10,32 +10,30 @@ maintainer's work setup.
 
 ## Status (2026-11-24)
 
-Released and listed. 0.1.0 (2026-11-19) is the latest release; listed on
-the Omarchy plugin marketplace (omarchyplugins.com, id
-`io.github.cwilliams5.transom`, issue omacom/omarchy-plugin-marketplace#15342,
-approved-and-verified at `eb20a13`). Every commit after that shows as
-"Update unverified" on the listing until a newer one is verified.
+Released and listed. 0.2.0 (2026-11-24) is the latest release; 0.1.0 came
+out 2026-11-19. Listed on the Omarchy plugin marketplace (omarchyplugins.com,
+id `io.github.cwilliams5.transom`, issue
+omacom/omarchy-plugin-marketplace#15342, approved-and-verified at
+`eb20a13`, 0.1.0). Every commit after that shows as "Update unverified" on
+the listing until a newer one is verified: the "Plugin verification"
+request for 0.2.0 waits for the maintainer's go.
 
-0.2.0 is being released from branch `review-r1` (main is still `f5c2fbf`,
-the first cut of the widget, which `omarchy plugin update` already brought
-to existing users under the 0.1.0 label: why unreleased work stays on a
-branch now, rule 21). What 0.2.0 adds since `eb20a13`:
+What 0.2.0 added since `eb20a13`:
 - the optional top-bar widget (`BarWidget.qml`): show or hide the taskbar,
   and a two-column dropdown with nearly every bar-menu setting; the bar
   menu's "Top-bar icon" brings it back, even after it was dragged off;
 - window icons styled apart from the tray's (`windowIconStyle`);
 - clicking the active window minimizes it (`activeClick`, default now
-  "minimize"); the bar's clicks keep the pointer still (rule 17,
-  `pointerToWindow`); `hideWithTopBar` (off: Transom as the only bar);
-  show desktop's quick double-click; the tray's own-process-first guess;
-- two strict-review rounds' fixes (`docs/PLAN.md`, R1 and R2), with
+  "minimize" for new installs); the bar's clicks keep the pointer still
+  (rule 17, `pointerToWindow`); `hideWithTopBar` (off: Transom as the only
+  bar); show desktop's quick double-click; the tray's own-process-first
+  guess;
+- three review rounds' fixes (`docs/PLAN.md`, R1, R2, R3), with
   `tests/widget.test.sh`, `tests/scripts.test.sh` and the mutation check
-  (`tests/mutate.js`).
+  (`tests/mutate.js`); `NOTICE` for the code adapted from Omarchy.
 
-Release order (the maintainer approves each public step): the review of
-the delta since `eb20a13` and the README pictures, then merge to main,
-version 0.2.0, tag and GitHub release, then, last, after the maintainer
-has tried it, the marketplace's "Plugin verification" request.
+Unreleased work stays on a branch until its release (rule 21): 0.2.0 was
+reviewed on `review-r1` and merged to main for the release.
 
 Decided 2026-11-23: removing the widget turns Transom off for installs
 made with `--enable` (see "Platform facts", the bar-widget kind), and
@@ -121,7 +119,7 @@ user's call, and the README tells them how.
     `skip-taskbar` (leave a window off the taskbar)
   - widget ids in the layout: `tasks`, `quicklaunch`, `tray`, `showdesktop`,
     plus any Omarchy bar widget id (`omarchy.network`, `omarchy.menu`...)
-- Version: 0.1.0 in `manifest.json`; tag `v0.1.0`.
+- Version: 0.2.0 in `manifest.json`; tag `v0.2.0`.
 - Branding: `branding/` (`python3 branding/build.py` regenerates it); the
   mark is "Crossbar", `icon.svg` at the root is the app icon.
 

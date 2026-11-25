@@ -3,12 +3,12 @@
 What's left to build and fix. Read `CLAUDE.md` first; update this list in
 the same commit as the work.
 
-## 0.2.0 (in progress)
+## 0.2.0 (released 2026-11-24)
 
-The optional top-bar widget, window icon styles and the icon switch are on
-main (CLAUDE.md, Status). `omarchy plugin update` has already brought them
-to existing users, still labelled 0.1.0 (R1-M4), so: finish the list below,
-then release 0.2.0 through the ship-update skill.
+The optional top-bar widget, window icon styles, three review rounds and
+the additions below, released through the ship-update skill. Left: the
+marketplace's "Plugin verification" request for 0.2.0, on the maintainer's
+go after he validated the release (CLAUDE.md, Status).
 
 ### Added after the reviews
 
@@ -162,8 +162,9 @@ only by regexes over Service.qml.
   late; a failed probe reads as "launch". Fix: `busctl --timeout`, an
   overall `timeout`, a QML watchdog, stale results dropped, a failed probe
   does nothing.
-- [ ] **R1-M4 Unreleased 0.2.0 shipped from main, labelled 0.1.0**
-  (F M4). Release soon; keep unreleased work on a branch from now on.
+- [x] **R1-M4 Unreleased 0.2.0 shipped from main, labelled 0.1.0**
+  (F M4). Released as 0.2.0 on 2026-11-24; unreleased work stays on a
+  branch from now on (CLAUDE.md rule 21).
 - [x] **R1-M5 Omarchy's bar at the bottom stacks both bars there**
   (F M3). By reading. Documented as a known limit for 0.2.0; following
   Omarchy's bar to the other edge is a later feature (popups would open
