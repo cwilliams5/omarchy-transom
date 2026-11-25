@@ -71,6 +71,8 @@ across a window. This one sits across all of yours.)
 
 - **An optional icon on Omarchy's top bar** to show or hide the taskbar
   (middle-click it) and reach its main settings. See "Top-bar widget".
+
+  <img src="media/top-bar-dropdown.png" alt="The top-bar icon's dropdown: Show the taskbar, then the bar, tray, quick launch, taskbar button and icon settings" width="480">
 - **And:** auto-hide that gives windows the space back, emoji-free window
   titles, one bar per screen (or just the primary), and every option in one
   JSON file.
